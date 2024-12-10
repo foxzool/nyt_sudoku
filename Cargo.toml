@@ -1,8 +1,8 @@
 [package]
-name = "bevy_game" # ToDo
+name = "bevy_sudoku"
 version = "0.1.0"
 publish = false
-authors = ["Niklas Eicker <git@nikl.me>"] # ToDo: you are the author ;)
+authors = ["FoxZoOL <zhooul@gmail.com>"]
 edition = "2021"
 exclude = ["dist", "build", "assets", "credits"]
 

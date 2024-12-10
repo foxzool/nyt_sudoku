@@ -11,11 +11,10 @@ on:
         required: true
         type: string
 
-# ToDo: adapt names
 env:
   # This variable is used to name release output files.
-  GAME_EXECUTABLE_NAME: bevy_game
-  GAME_OSX_APP_NAME: BevyGame
+  GAME_EXECUTABLE_NAME: bevy_sudoku
+  GAME_OSX_APP_NAME: BevySudoku
 
 permissions:
   contents: write

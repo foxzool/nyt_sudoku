@@ -82,5 +82,7 @@ image = { version = "0.25", default-features = false }
 ## This greatly improves WGPU's performance due to its heavy use of trace! calls
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
 
+sudoku = "0.8.0"
+
 [build-dependencies]
 embed-resource = "1"

@@ -1,9 +1,11 @@
 use crate::actions::Actions;
-use crate::logic::position::CellPosition;
+use crate::board::cell_state::{CellValue, FixedCell};
+use crate::board::position::CellPosition;
 use crate::GameState;
 use bevy::color::palettes::basic::{BLACK, GRAY};
 use bevy::color::palettes::css;
 use bevy::prelude::*;
+use sudoku::board::CellState;
 use sudoku::strategy::StrategySolver;
 use sudoku::Sudoku;
 
@@ -21,12 +23,12 @@ pub struct SudokuManager {
 }
 
 /// This plugin handles player related stuff like movement
-/// Player logic is only active during the State `GameState::Playing`
+/// Player board is only active during the State `GameState::Playing`
 impl Plugin for SudokuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             OnEnter(GameState::Playing),
-            (spawn_board, spawn_cells).chain(),
+            (spawn_board, init_cells).chain(),
         )
         .add_systems(Update, move_player.run_if(in_state(GameState::Playing)));
     }
@@ -97,7 +99,7 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // CellsLayout,
             )).with_children(|builder| {
                 // 生成九个宫格
-                for block_index in (0..9) {
+                for block_index in 0..9 {
                     builder.spawn((Node {
                         height: Val::Percent(100.0),
                         aspect_ratio: Some(1.0),
@@ -111,7 +113,7 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                                    BackgroundColor(GRAY.into())
                     )).with_children(|builder| {
-                        for bi in (0..9) {
+                        for bi in 0..9 {
                             let cell = block_index * 9 + bi;
                             builder.spawn((
                                 CellPosition::new(cell),
@@ -171,16 +173,9 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 #[derive(Component)]
-struct CellsLayout;
-
-#[derive(Component)]
 struct ControlLayout;
 
-fn spawn_cells(
-    mut commands: Commands,
-    layout: Single<Entity, With<CellsLayout>>,
-    asset_server: Res<AssetServer>,
-) {
+fn init_cells(mut commands: Commands, cell_position: Query<(Entity, &CellPosition)>) {
     let sudoku = Sudoku::generate();
 
     let solver = StrategySolver::from_sudoku(sudoku.clone());
@@ -188,33 +183,24 @@ fn spawn_cells(
         current_sudoku: sudoku,
     });
 
-    for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
-        let cell_state = cell_state::CellState(cell_state);
+    'l: for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
+        let cell_value = CellValue(cell_state);
 
-        commands.entity(*layout).with_children(|commands| {
-            commands
-                .spawn((
-                    cell_state,
-                    CellPosition::new(index as u8),
-                    Node {
-                        display: Display::Grid,
-                        // border: UiRect::all(Val::Px(1.)),
-                        ..default()
-                    },
-                    Outline {
-                        width: Val::Px(1.),
-                        color: Color::srgb_u8(97, 97, 97),
-                        ..default()
-                    },
-                    // BackgroundColor(BISQUE.into())
-                ))
-                .with_children(|builder| {
-                    builder.spawn((
-                        Node::default(),
-                        BackgroundColor(bevy::color::palettes::css::BISQUE.into()),
-                    ));
-                });
-        });
+        for (entity, cell_position) in cell_position.iter() {
+            if cell_position.0 == index as u8 {
+                match &cell_value.0 {
+                    // 如果一开始就是数字，那么这个格子是固定的
+                    CellState::Digit(_) => {
+                        commands.entity(entity).insert(FixedCell).insert(cell_value);
+                    }
+                    CellState::Candidates(_) => {
+                        commands.entity(entity).insert(cell_value);
+                    }
+                }
+
+                continue 'l;
+            }
+        }
     }
 }
 

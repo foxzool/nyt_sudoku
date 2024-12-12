@@ -2,7 +2,6 @@ use crate::board::cell_state::{CellValue, FixedCell};
 use crate::board::position::CellPosition;
 use crate::GameState;
 use bevy::color::palettes::basic::{BLACK, GRAY};
-use bevy::color::palettes::css;
 use bevy::prelude::*;
 use sudoku::board::CellState;
 use sudoku::strategy::StrategySolver;
@@ -29,7 +28,9 @@ impl Plugin for SudokuPlugin {
             OnEnter(GameState::Playing),
             (spawn_board, init_cells).chain(),
         )
-        .add_systems(Update, update_cell.run_if(in_state(GameState::Playing)));
+        .add_systems(Update, (update_cell).run_if(in_state(GameState::Playing)))
+        .add_observer(on_select_cell)
+        .add_observer(on_unselect_cell);
     }
 }
 
@@ -115,21 +116,22 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                         for bi in 0..9 {
                             let cell = block_index * 9 + bi;
                             builder.spawn((
-                                CellPosition::new(cell),
                                 Node {
                                     display: Display::Grid,
-                                    // border: UiRect::all(Val::Px(2.)),
                                     ..default()
                                 },
-                                // BorderColor(css::AQUA.into()),
                             )).with_children(|builder| {
-                                builder.spawn((Node {
-                                    align_items: AlignItems::Center,
-                                    justify_items: JustifyItems::Center,
-                                    align_content: AlignContent::Center,
-                                    justify_content: JustifyContent::Center,
-                                    ..default()
-                                }, BackgroundColor(Color::WHITE), CellBackground))
+                                // 格子
+                                builder.spawn((
+                                    CellPosition::new(cell),
+                                    Node {
+                                        align_items: AlignItems::Center,
+                                        justify_items: JustifyItems::Center,
+                                        align_content: AlignContent::Center,
+                                        justify_content: JustifyContent::Center,
+                                        ..default()
+                                }, BackgroundColor(Color::WHITE), CellGrid))
+                                    .observe(on_click_cell)
                                     .with_children(|builder| {
                                         builder.spawn((
                                             Text::new(cell.to_string()),
@@ -197,11 +199,12 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 ///  选中的格子
+#[derive(Component)]
 pub struct SelectedCell;
 
 /// 格子背景索引
 #[derive(Component)]
-pub struct CellBackground;
+pub struct CellGrid;
 
 /// 数字格子
 #[derive(Component)]
@@ -210,7 +213,7 @@ pub struct DigitCell;
 #[derive(Component)]
 struct ControlLayout;
 
-fn init_cells(mut commands: Commands, cell_position: Query<(Entity, &CellPosition)>) {
+fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosition)>) {
     let sudoku = Sudoku::generate();
     info!("sudoku: {:?}", sudoku);
 
@@ -222,12 +225,16 @@ fn init_cells(mut commands: Commands, cell_position: Query<(Entity, &CellPositio
     'l: for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
         let cell_value = CellValue(cell_state);
 
-        for (entity, cell_position) in cell_position.iter() {
+        for (entity, cell_position) in cell_background.iter() {
             if cell_position.0 == index as u8 {
                 match &cell_value.0 {
-                    // 如果一开始就是数字，那么这个格子是固定的
+                    // 如果一开始就是数字，那么这个格子是固定颜色
                     CellState::Digit(_) => {
-                        commands.entity(entity).insert(FixedCell).insert(cell_value);
+                        commands
+                            .entity(entity)
+                            .insert(FixedCell)
+                            .insert(cell_value)
+                            .insert(BackgroundColor(FIXED_COLOR));
                     }
                     CellState::Candidates(_) => {
                         commands.entity(entity).insert(cell_value);
@@ -240,31 +247,57 @@ fn init_cells(mut commands: Commands, cell_position: Query<(Entity, &CellPositio
     }
 }
 
+const SELECTED_COLOR: Color = Color::linear_rgb(0.902, 0.773, 0.);
+const FIXED_COLOR: Color = Color::linear_rgb(0.914, 0.914, 0.914);
+
+fn on_select_cell(trigger: Trigger<OnInsert, SelectedCell>, mut cell: Query<&mut BackgroundColor>) {
+    let entity = trigger.entity();
+    if let Ok(mut background) = cell.get_mut(entity) {
+        background.0 = SELECTED_COLOR;
+    }
+}
+
+fn on_unselect_cell(
+    trigger: Trigger<OnRemove, SelectedCell>,
+    mut cell: Query<(&mut BackgroundColor, Option<&FixedCell>)>,
+) {
+    let entity = trigger.entity();
+    if let Ok((mut background, opt_fixed)) = cell.get_mut(entity) {
+        if opt_fixed.is_some() {
+            background.0 = FIXED_COLOR;
+        } else {
+            background.0 = Color::WHITE;
+        }
+    }
+}
+
 fn update_cell(
     cell: Query<(&CellValue, &Children, Option<&FixedCell>), Changed<CellValue>>,
-    mut cell_background: Query<(&mut BackgroundColor, &Children), With<CellBackground>>,
     mut cell_digit: Query<(&mut Text, &mut Visibility), With<DigitCell>>,
 ) {
     for (cell_value, children, opt_fixed) in cell.iter() {
-        for child in children.iter() {
-            if let Ok((mut background, children)) = cell_background.get_mut(*child) {
-                if let Some(_fixed) = opt_fixed {
-                    // 初始数字为固定颜色
-                    background.0 = Color::srgb_u8(223, 223, 223);
-                }
-
-                match cell_value.0 {
-                    CellState::Digit(digit) => {
-                        for child in children.iter() {
-                            if let Ok((mut text, mut visibility)) = cell_digit.get_mut(*child) {
-                                text.0 = digit.get().to_string();
-                                visibility.toggle_visible_hidden();
-                            }
-                        }
+        match cell_value.0 {
+            CellState::Digit(digit) => {
+                for child in children.iter() {
+                    if let Ok((mut text, mut visibility)) = cell_digit.get_mut(*child) {
+                        text.0 = digit.get().to_string();
+                        visibility.toggle_visible_hidden();
                     }
-                    CellState::Candidates(_) => {}
                 }
             }
+            CellState::Candidates(_) => {}
         }
     }
+}
+
+fn on_click_cell(
+    trigger: Trigger<Pointer<Click>>,
+    mut commands: Commands,
+    exist: Query<Entity, With<SelectedCell>>,
+) {
+    for entity in exist.iter() {
+        commands.entity(entity).remove::<SelectedCell>();
+    }
+
+    commands.entity(trigger.entity()).insert(SelectedCell);
 }

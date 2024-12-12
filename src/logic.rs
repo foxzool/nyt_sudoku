@@ -1,8 +1,8 @@
 use crate::actions::Actions;
 use crate::logic::position::CellPosition;
 use crate::GameState;
-use bevy::color::palettes::basic::BLACK;
-use bevy::color::palettes::css::BISQUE;
+use bevy::color::palettes::basic::{BLACK, GRAY};
+use bevy::color::palettes::css;
 use bevy::prelude::*;
 use sudoku::strategy::StrategySolver;
 use sudoku::Sudoku;
@@ -24,8 +24,11 @@ pub struct SudokuManager {
 /// Player logic is only active during the State `GameState::Playing`
 impl Plugin for SudokuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Playing), (spawn_board, spawn_cells).chain())
-            .add_systems(Update, move_player.run_if(in_state(GameState::Playing)));
+        app.add_systems(
+            OnEnter(GameState::Playing),
+            (spawn_board, spawn_cells).chain(),
+        )
+        .add_systems(Update, move_player.run_if(in_state(GameState::Playing)));
     }
 }
 
@@ -70,31 +73,61 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
 
         // 格子布局容器
         builder
-            .spawn((Node {
-                // height: Val::Percent(100.0),
-                margin: UiRect::axes(Val::Px(24.0), Val::Px(0.)),
-                ..default()
-            },
-                    // BackgroundColor(RED.into()),
+            .spawn((
+                Node {
+                    margin: UiRect::axes(Val::Px(24.0), Val::Px(0.)),
+                    ..default()
+                }, BackgroundColor(GRAY.into()),
             )).with_children(|builder| {
+            // 生成9宫格布局
             builder.spawn((
                 Node {
                     height: Val::Percent(100.0),
-                    // height: Val::Px(729.0 + 8.0 + 2.0),
                     aspect_ratio: Some(1.0),
                     display: Display::Grid,
-
-                    grid_template_columns: RepeatedGridTrack::flex(9, 1.0),
-                    grid_template_rows: RepeatedGridTrack::flex(9, 1.0),
-                    row_gap: Val::Px(1.0),
-                    column_gap: Val::Px(1.0),
-                    border: UiRect::all(Val::Px(2.0)),
+                    grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
+                    grid_template_rows: RepeatedGridTrack::flex(3, 1.0),
+                    row_gap: Val::Px(4.0),
+                    column_gap: Val::Px(4.0),
+                    border: UiRect::all(Val::Px(4.0)),
                     ..default()
                 },
-                BorderColor(Color::BLACK),
+                // BorderColor(Color::BLACK),
                 // BackgroundColor(Color::WHITE),
-                CellsLayout,
-            ));
+                // CellsLayout,
+            )).with_children(|builder| {
+                // 生成九个宫格
+                for block_index in (0..9) {
+                    builder.spawn((Node {
+                        height: Val::Percent(100.0),
+                        aspect_ratio: Some(1.0),
+                        display: Display::Grid,
+                        grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
+                        grid_template_rows: RepeatedGridTrack::flex(3, 1.0),
+                        row_gap: Val::Px(1.0),
+                        column_gap: Val::Px(1.0),
+                        // border: UiRect::all(Val::Px(1.)),
+                        ..default()
+                    },
+                                   BackgroundColor(GRAY.into())
+                    )).with_children(|builder| {
+                        for bi in (0..9) {
+                            let cell = block_index * 9 + bi;
+                            builder.spawn((
+                                CellPosition::new(cell),
+                                Node {
+                                    display: Display::Grid,
+                                    // border: UiRect::all(Val::Px(2.)),
+                                    ..default()
+                                },
+                                BorderColor(css::AQUA.into()),
+                            )).with_children(|builder| {
+                                builder.spawn((Node::default(), BackgroundColor(Color::WHITE)));
+                            });
+                        }
+                    });
+                }
+            });
         });
 
 
@@ -143,30 +176,44 @@ struct CellsLayout;
 #[derive(Component)]
 struct ControlLayout;
 
-fn spawn_cells(mut commands: Commands, layout: Single<Entity, With<CellsLayout>>, asset_server: Res<AssetServer>) {
+fn spawn_cells(
+    mut commands: Commands,
+    layout: Single<Entity, With<CellsLayout>>,
+    asset_server: Res<AssetServer>,
+) {
     let sudoku = Sudoku::generate();
 
     let solver = StrategySolver::from_sudoku(sudoku.clone());
-    commands.insert_resource(SudokuManager { current_sudoku: sudoku });
-
+    commands.insert_resource(SudokuManager {
+        current_sudoku: sudoku,
+    });
 
     for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
         let cell_state = cell_state::CellState(cell_state);
 
         commands.entity(*layout).with_children(|commands| {
-            commands.spawn((
-                cell_state,
-                CellPosition::new(index as u8),
-                Node {
-                    display: Display::Grid,
-                    // border: UiRect::all(Val::Px(1.)),
-                    ..default()
-                },
-                BorderColor(Color::srgb_u8(18, 18, 18)),
-                BackgroundColor(BISQUE.into())
-            )).with_children(|builder| {
-                // builder.spawn((Node::default(), BackgroundColor(BISQUE.into())));
-            });
+            commands
+                .spawn((
+                    cell_state,
+                    CellPosition::new(index as u8),
+                    Node {
+                        display: Display::Grid,
+                        // border: UiRect::all(Val::Px(1.)),
+                        ..default()
+                    },
+                    Outline {
+                        width: Val::Px(1.),
+                        color: Color::srgb_u8(97, 97, 97),
+                        ..default()
+                    },
+                    // BackgroundColor(BISQUE.into())
+                ))
+                .with_children(|builder| {
+                    builder.spawn((
+                        Node::default(),
+                        BackgroundColor(bevy::color::palettes::css::BISQUE.into()),
+                    ));
+                });
         });
     }
 }

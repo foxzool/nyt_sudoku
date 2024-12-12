@@ -4,7 +4,6 @@ use bevy::prelude::Component;
 #[derive(Component, Debug)]
 pub struct CellPosition(pub u8);
 
-
 /// 快速计算宫格索引
 #[rustfmt::skip]
 static BLOCK: [u8; 81] = [

@@ -1,4 +1,3 @@
-use crate::actions::Actions;
 use crate::board::cell_state::{CellValue, FixedCell};
 use crate::board::position::CellPosition;
 use crate::GameState;
@@ -30,7 +29,7 @@ impl Plugin for SudokuPlugin {
             OnEnter(GameState::Playing),
             (spawn_board, init_cells).chain(),
         )
-        .add_systems(Update, move_player.run_if(in_state(GameState::Playing)));
+        .add_systems(Update, update_cell.run_if(in_state(GameState::Playing)));
     }
 }
 
@@ -110,9 +109,9 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: Val::Px(1.0),
                         // border: UiRect::all(Val::Px(1.)),
                         ..default()
-                    },
-                                   BackgroundColor(GRAY.into())
+                    }, BackgroundColor(GRAY.into())
                     )).with_children(|builder| {
+                        // 生成宫格里的9个格子
                         for bi in 0..9 {
                             let cell = block_index * 9 + bi;
                             builder.spawn((
@@ -122,9 +121,34 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     // border: UiRect::all(Val::Px(2.)),
                                     ..default()
                                 },
-                                BorderColor(css::AQUA.into()),
+                                // BorderColor(css::AQUA.into()),
                             )).with_children(|builder| {
-                                builder.spawn((Node::default(), BackgroundColor(Color::WHITE)));
+                                builder.spawn((Node {
+                                    align_items: AlignItems::Center,
+                                    justify_items: JustifyItems::Center,
+                                    align_content: AlignContent::Center,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                }, BackgroundColor(Color::WHITE), CellBackground))
+                                    .with_children(|builder| {
+                                        builder.spawn((
+                                            Text::new(cell.to_string()),
+                                            TextFont { font: font.clone(),
+                                                font_size: 42.0,
+                                            ..default() },
+                                            TextColor(Color::srgb_u8(18,18,18)),
+                                            Visibility::Hidden,
+                                            Node {
+                                                margin: UiRect {
+                                                  bottom: Val::Px(1.0),
+                                                    ..default()
+                                                },
+                                                ..default()
+                                            },
+                                            DigitCell
+                                        ));
+                                    });
+                                // builder.spawn((Node::default(), BackgroundColor(Color::WHITE)));
                             });
                         }
                     });
@@ -172,11 +196,23 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
+///  选中的格子
+pub struct SelectedCell;
+
+/// 格子背景索引
+#[derive(Component)]
+pub struct CellBackground;
+
+/// 数字格子
+#[derive(Component)]
+pub struct DigitCell;
+
 #[derive(Component)]
 struct ControlLayout;
 
 fn init_cells(mut commands: Commands, cell_position: Query<(Entity, &CellPosition)>) {
     let sudoku = Sudoku::generate();
+    info!("sudoku: {:?}", sudoku);
 
     let solver = StrategySolver::from_sudoku(sudoku.clone());
     commands.insert_resource(SudokuManager {
@@ -204,21 +240,31 @@ fn init_cells(mut commands: Commands, cell_position: Query<(Entity, &CellPositio
     }
 }
 
-fn move_player(
-    time: Res<Time>,
-    actions: Res<Actions>,
-    mut player_query: Query<&mut Transform, With<Player>>,
+fn update_cell(
+    cell: Query<(&CellValue, &Children, Option<&FixedCell>), Changed<CellValue>>,
+    mut cell_background: Query<(&mut BackgroundColor, &Children), With<CellBackground>>,
+    mut cell_digit: Query<(&mut Text, &mut Visibility), With<DigitCell>>,
 ) {
-    if actions.player_movement.is_none() {
-        return;
-    }
-    let speed = 150.;
-    let movement = Vec3::new(
-        actions.player_movement.unwrap().x * speed * time.delta_secs(),
-        actions.player_movement.unwrap().y * speed * time.delta_secs(),
-        0.,
-    );
-    for mut player_transform in &mut player_query {
-        player_transform.translation += movement;
+    for (cell_value, children, opt_fixed) in cell.iter() {
+        for child in children.iter() {
+            if let Ok((mut background, children)) = cell_background.get_mut(*child) {
+                if let Some(_fixed) = opt_fixed {
+                    // 初始数字为固定颜色
+                    background.0 = Color::srgb_u8(223, 223, 223);
+                }
+
+                match cell_value.0 {
+                    CellState::Digit(digit) => {
+                        for child in children.iter() {
+                            if let Ok((mut text, mut visibility)) = cell_digit.get_mut(*child) {
+                                text.0 = digit.get().to_string();
+                                visibility.toggle_visible_hidden();
+                            }
+                        }
+                    }
+                    CellState::Candidates(_) => {}
+                }
+            }
+        }
     }
 }

@@ -2,8 +2,10 @@ use crate::board::cell_state::{CellValue, FixedCell};
 use crate::board::position::CellPosition;
 use crate::GameState;
 use bevy::color::palettes::basic::{BLACK, GRAY};
+use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
-use sudoku::board::CellState;
+use bevy::render::view::visibility;
+use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
 use sudoku::Sudoku;
 
@@ -28,7 +30,10 @@ impl Plugin for SudokuPlugin {
             OnEnter(GameState::Playing),
             (spawn_board, init_cells).chain(),
         )
-        .add_systems(Update, (update_cell).run_if(in_state(GameState::Playing)))
+        .add_systems(
+            Update,
+            (update_cell, set_keyboard_input).run_if(in_state(GameState::Playing)),
+        )
         .add_observer(on_select_cell)
         .add_observer(on_unselect_cell);
     }
@@ -281,7 +286,7 @@ fn update_cell(
                 for child in children.iter() {
                     if let Ok((mut text, mut visibility)) = cell_digit.get_mut(*child) {
                         text.0 = digit.get().to_string();
-                        visibility.toggle_visible_hidden();
+                        *visibility = Visibility::Visible;
                     }
                 }
             }
@@ -300,4 +305,46 @@ fn on_click_cell(
     }
 
     commands.entity(trigger.entity()).insert(SelectedCell);
+}
+
+fn set_keyboard_input(
+    mut keyboard_input_events: EventReader<KeyboardInput>,
+    mut selected_cell: Single<&mut CellValue, With<SelectedCell>>,
+) {
+    for event in keyboard_input_events.read() {
+        match event.key_code {
+            KeyCode::Digit0 | KeyCode::Numpad0 => {
+                selected_cell.0 = CellState::Digit(Digit::new(0));
+            }
+            KeyCode::Digit1 | KeyCode::Numpad1 => {
+                selected_cell.0 = CellState::Digit(Digit::new(1));
+            }
+            KeyCode::Digit2 | KeyCode::Numpad2 => {
+                selected_cell.0 = CellState::Digit(Digit::new(2));
+            }
+            KeyCode::Digit3 | KeyCode::Numpad3 => {
+                selected_cell.0 = CellState::Digit(Digit::new(3));
+            }
+            KeyCode::Digit4 | KeyCode::Numpad4 => {
+                selected_cell.0 = CellState::Digit(Digit::new(4));
+            }
+            KeyCode::Digit5 | KeyCode::Numpad5 => {
+                selected_cell.0 = CellState::Digit(Digit::new(5));
+            }
+            KeyCode::Digit6 | KeyCode::Numpad6 => {
+                selected_cell.0 = CellState::Digit(Digit::new(6));
+            }
+            KeyCode::Digit7 | KeyCode::Numpad7 => {
+                selected_cell.0 = CellState::Digit(Digit::new(7));
+            }
+            KeyCode::Digit8 | KeyCode::Numpad8 => {
+                selected_cell.0 = CellState::Digit(Digit::new(8));
+            }
+            KeyCode::Digit9 | KeyCode::Numpad9 => {
+                selected_cell.0 = CellState::Digit(Digit::new(9));
+            }
+
+            _ => {}
+        }
+    }
 }

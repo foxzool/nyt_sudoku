@@ -30,12 +30,12 @@ impl Plugin for SudokuPlugin {
             OnEnter(GameState::Playing),
             (spawn_board, init_cells).chain(),
         )
-        .add_systems(
-            Update,
-            (update_cell, set_keyboard_input).run_if(in_state(GameState::Playing)),
-        )
-        .add_observer(on_select_cell)
-        .add_observer(on_unselect_cell);
+            .add_systems(
+                Update,
+                (update_cell, set_keyboard_input).run_if(in_state(GameState::Playing)),
+            )
+            .add_observer(on_select_cell)
+            .add_observer(on_unselect_cell);
     }
 }
 
@@ -135,25 +135,74 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         align_content: AlignContent::Center,
                                         justify_content: JustifyContent::Center,
                                         ..default()
-                                }, BackgroundColor(Color::WHITE), CellGrid))
+                                    }, BackgroundColor(Color::WHITE), CellGrid))
                                     .observe(on_click_cell)
                                     .with_children(|builder| {
+                                        // 数字格子
                                         builder.spawn((
                                             Text::new(cell.to_string()),
-                                            TextFont { font: font.clone(),
+                                            TextFont {
+                                                font: font.clone(),
                                                 font_size: 42.0,
-                                            ..default() },
-                                            TextColor(Color::srgb_u8(18,18,18)),
+                                                ..default()
+                                            },
+                                            TextColor(Color::srgb_u8(18, 18, 18)),
                                             Visibility::Hidden,
                                             Node {
                                                 margin: UiRect {
-                                                  bottom: Val::Px(1.0),
+                                                    bottom: Val::Px(1.0),
                                                     ..default()
                                                 },
                                                 ..default()
                                             },
                                             DigitCell
                                         ));
+
+                                        // 候选格子容器
+                                        builder.spawn((
+                                            Visibility::Hidden,
+                                            Node {
+                                                height: Val::Percent(100.0),
+                                                display: Display::Grid,
+                                                aspect_ratio: Some(1.0),
+                                                position_type: PositionType::Absolute,
+                                                grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
+                                                grid_template_rows: RepeatedGridTrack::flex(3, 1.0),
+                                                // row_gap: Val::Px(4.0),
+                                                // column_gap: Val::Px(4.0),
+                                                ..default()
+                                            },
+                                            CandidatesContainer
+                                        ))
+                                            .with_children(|builder| {
+                                                // 9个候选数字格子
+                                                for i in 1..=9u8 {
+                                                    builder.spawn((
+                                                        Text::new(i.to_string()),
+                                                        TextFont {
+                                                            font: font.clone(),
+                                                            font_size: 12.0,
+                                                            ..default()
+                                                        },
+                                                        TextColor(Color::srgb_u8(18, 18, 18)),
+                                                        TextLayout::new_with_justify(JustifyText::Center),
+                                                        Node {
+                                                            align_items: AlignItems::Center,
+                                                            justify_items: JustifyItems::Center,
+                                                            align_content: AlignContent::Center,
+                                                            justify_content: JustifyContent::Center,
+                                                            margin: UiRect {
+                                                                top: Val::Px(4.),
+                                                                ..default()
+                                                            },
+                                                            ..default()
+                                                        },
+                                                        // BackgroundColor(Color::WHITE),
+                                                        CandidateCellIndex(i)
+                                                    ));
+                                                }
+                                            })
+                                        ;
                                     });
                                 // builder.spawn((Node::default(), BackgroundColor(Color::WHITE)));
                             });
@@ -214,6 +263,14 @@ pub struct CellGrid;
 /// 数字格子
 #[derive(Component)]
 pub struct DigitCell;
+
+/// 候选格子
+#[derive(Component)]
+pub struct CandidatesContainer;
+
+/// 候选数字格子索引，从1到9
+#[derive(Component)]
+pub struct CandidateCellIndex(pub u8);
 
 #[derive(Component)]
 struct ControlLayout;
@@ -278,19 +335,51 @@ fn on_unselect_cell(
 
 fn update_cell(
     cell: Query<(&CellValue, &Children, Option<&FixedCell>), Changed<CellValue>>,
-    mut cell_digit: Query<(&mut Text, &mut Visibility), With<DigitCell>>,
+    mut digit_cell: Query<(&mut Text, &mut Visibility), (With<DigitCell>, Without<CandidatesContainer>)>,
+    mut candidates_container: Query<(&mut Visibility, &Children), (With<CandidatesContainer>, Without<DigitCell>)>,
+    mut candidate_cell: Query<(&mut Text, &CandidateCellIndex), Without<DigitCell>>,
 ) {
     for (cell_value, children, opt_fixed) in cell.iter() {
-        match cell_value.0 {
-            CellState::Digit(digit) => {
-                for child in children.iter() {
-                    if let Ok((mut text, mut visibility)) = cell_digit.get_mut(*child) {
+        for child in children.iter() {
+            if let Ok((mut _text, mut visibility)) = digit_cell.get_mut(*child) {
+                *visibility = Visibility::Hidden;
+            }
+            if let Ok((mut visibility, _children)) = candidates_container.get_mut(*child) {
+                *visibility = Visibility::Hidden;
+            }
+            match cell_value.0 {
+                CellState::Digit(digit) => {
+                    if let Ok((mut text, mut visibility)) = digit_cell.get_mut(*child) {
                         text.0 = digit.get().to_string();
                         *visibility = Visibility::Visible;
                     }
                 }
+                CellState::Candidates(candidates) => {
+                    if opt_fixed.is_some() {
+                        continue;
+                    }
+                    info!("candidates: {:?}", candidates);
+                    if let Ok((mut visibility, children)) = candidates_container.get_mut(*child) {
+                        *visibility = Visibility::Visible;
+                        // 清空所有候选数字
+                        for child in children {
+                            if let Ok((mut text, _candidate_index)) = candidate_cell.get_mut(*child) {
+                                text.0 = "".to_string();
+                            }
+                        }
+                        for candidate in candidates.into_iter() {
+                            for child in children {
+                                if let Ok((mut text, candidate_index)) = candidate_cell.get_mut(*child) {
+                                    let candidate_number = candidate.get();
+                                    if candidate_index.0 == candidate_number {
+                                        text.0 = candidate_number.to_string();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            CellState::Candidates(_) => {}
         }
     }
 }
@@ -309,8 +398,12 @@ fn on_click_cell(
 
 fn set_keyboard_input(
     mut keyboard_input_events: EventReader<KeyboardInput>,
-    mut selected_cell: Single<&mut CellValue, With<SelectedCell>>,
+    mut selected_cell: Single<(&mut CellValue, Option<&FixedCell>), With<SelectedCell>>,
 ) {
+    let (mut selected_cell, opt_fixed) = selected_cell.into_inner();
+    if opt_fixed.is_some() {
+        return;
+    }
     for event in keyboard_input_events.read() {
         match event.key_code {
             KeyCode::Digit0 | KeyCode::Numpad0 => {

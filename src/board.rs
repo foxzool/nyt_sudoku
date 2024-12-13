@@ -3,10 +3,10 @@ use crate::board::position::CellPosition;
 use crate::GameState;
 use bevy::color::palettes::basic::{BLACK, GRAY};
 use bevy::input::keyboard::KeyboardInput;
+use bevy::input::ButtonState;
 use bevy::prelude::*;
-use bevy::render::view::visibility;
-use bevy::ui::OverflowAxis::Visible;
 use std::ops::{BitAnd, BitAndAssign, BitOrAssign};
+use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
 use sudoku::Sudoku;
@@ -22,6 +22,7 @@ pub struct Player;
 #[derive(Resource, Debug)]
 pub struct SudokuManager {
     pub current_sudoku: Sudoku,
+    pub solver: StrategySolver,
 }
 
 /// This plugin handles player related stuff like movement
@@ -32,12 +33,14 @@ impl Plugin for SudokuPlugin {
             OnEnter(GameState::Playing),
             (spawn_board, init_cells).chain(),
         )
-            .add_systems(
-                Update,
-                (update_cell, set_keyboard_input).run_if(in_state(GameState::Playing)),
-            )
-            .add_observer(on_select_cell)
-            .add_observer(on_unselect_cell);
+        .add_systems(
+            Update,
+            (update_cell, set_keyboard_input).run_if(in_state(GameState::Playing)),
+        )
+        .add_observer(on_select_cell)
+        .add_observer(on_unselect_cell)
+        .add_observer(check_solver)
+        .add_observer(kick_candidates);
     }
 }
 
@@ -295,6 +298,7 @@ fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosit
     let solver = StrategySolver::from_sudoku(sudoku.clone());
     commands.insert_resource(SudokuManager {
         current_sudoku: sudoku,
+        solver: solver.clone(),
     });
 
     'l: for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
@@ -347,12 +351,22 @@ fn on_unselect_cell(
 }
 
 fn update_cell(
-    cell: Query<(&CellValue, &Children, Option<&FixedCell>), Changed<CellValue>>,
-    mut digit_cell: Query<(&mut Text, &mut Visibility), (With<DigitCell>, Without<CandidatesContainer>)>,
-    mut candidates_container: Query<(&mut Visibility, &Children), (With<CandidatesContainer>, Without<DigitCell>)>,
-    mut candidate_cell: Query<(&mut TextColor, &mut Visibility, &mut CandidateCell), (Without<DigitCell>, Without<CandidatesContainer>)>,
+    mut commands: Commands,
+    cell: Query<(&CellValue, &Children, Option<&FixedCell>, &CellPosition), Changed<CellValue>>,
+    mut digit_cell: Query<
+        (&mut Text, &mut Visibility),
+        (With<DigitCell>, Without<CandidatesContainer>),
+    >,
+    mut candidates_container: Query<
+        (&mut Visibility, &Children),
+        (With<CandidatesContainer>, Without<DigitCell>),
+    >,
+    mut candidate_cell: Query<
+        (&mut TextColor, &mut Visibility, &mut CandidateCell),
+        (Without<DigitCell>, Without<CandidatesContainer>),
+    >,
 ) {
-    for (cell_value, children, opt_fixed) in cell.iter() {
+    for (cell_value, children, opt_fixed, cell_position) in cell.iter() {
         for child in children.iter() {
             if let Ok((_text, mut visibility)) = digit_cell.get_mut(*child) {
                 *visibility = Visibility::Hidden;
@@ -363,24 +377,40 @@ fn update_cell(
             match cell_value.0 {
                 CellState::Digit(digit) => {
                     if let Ok((mut text, mut visibility)) = digit_cell.get_mut(*child) {
+                        info!("cell {} changed value {}", cell_position, digit.get());
                         text.0 = digit.get().to_string();
                         *visibility = Visibility::Visible;
+                        commands.trigger(CheckSolver);
+                        commands.trigger(KickCandidates {
+                            digit: digit.get(),
+                            position: *cell_position,
+                        });
                     }
                 }
                 CellState::Candidates(candidates) => {
                     if opt_fixed.is_some() {
                         continue;
                     }
+
+                    info!(
+                        "cell {} changed value {:?}",
+                        cell_position,
+                        candidates.into_iter().collect::<Vec<_>>()
+                    );
+
                     if let Ok((mut visibility, children)) = candidates_container.get_mut(*child) {
                         *visibility = Visibility::Visible;
-                        for candidate in candidates.into_iter() {
-                            for child in children {
-                                if let Ok((mut text_color, mut visibility, mut cell)) = candidate_cell.get_mut(*child) {
-                                    let candidate_number = candidate.get();
-                                    if cell.index == candidate_number {
-                                        cell.selected = true;
-                                        *text_color = TextColor(Color::srgb_u8(18, 18, 18));
-                                    }
+
+                        for child in children {
+                            if let Ok((mut text_color, mut visibility, mut cell)) =
+                                candidate_cell.get_mut(*child)
+                            {
+                                if candidates.contains(Digit::new(cell.index).as_set()) {
+                                    cell.selected = true;
+                                    *text_color = TextColor(Color::srgb_u8(18, 18, 18));
+                                } else {
+                                    cell.selected = false;
+                                    *text_color = TextColor(Color::srgba_u8(18, 18, 18, 0));
                                 }
                             }
                         }
@@ -412,6 +442,10 @@ fn set_keyboard_input(
         return;
     }
     for event in keyboard_input_events.read() {
+        if event.state != ButtonState::Pressed {
+            continue;
+        }
+
         match event.key_code {
             KeyCode::Digit0 | KeyCode::Numpad0 => {
                 selected_cell.0 = CellState::Digit(Digit::new(0));
@@ -443,13 +477,21 @@ fn set_keyboard_input(
             KeyCode::Digit9 | KeyCode::Numpad9 => {
                 selected_cell.0 = CellState::Digit(Digit::new(9));
             }
+            KeyCode::Delete => {
+                selected_cell.0 = CellState::Candidates(Set::NONE);
+            }
 
             _ => {}
         }
     }
 }
 
-fn candidate_cell_move(trigger: Trigger<Pointer<Over>>, mut cell: Query<(Entity, &mut TextColor, &CandidateCell)>, parent_query: Query<&Parent>, q_select: Query<&SelectedCell>) {
+fn candidate_cell_move(
+    trigger: Trigger<Pointer<Over>>,
+    mut cell: Query<(Entity, &mut TextColor, &CandidateCell)>,
+    parent_query: Query<&Parent>,
+    q_select: Query<&SelectedCell>,
+) {
     let (entity, mut text_color, candidate_cell) = cell.get_mut(trigger.entity()).unwrap();
     for ancestor in parent_query.iter_ancestors(entity) {
         if q_select.get(ancestor).is_ok() && !candidate_cell.selected {
@@ -458,7 +500,12 @@ fn candidate_cell_move(trigger: Trigger<Pointer<Over>>, mut cell: Query<(Entity,
     }
 }
 
-fn candidate_cell_out(out: Trigger<Pointer<Out>>, mut cell: Query<(Entity, &mut TextColor, &CandidateCell)>, parent_query: Query<&Parent>, q_select: Query<&SelectedCell>) {
+fn candidate_cell_out(
+    out: Trigger<Pointer<Out>>,
+    mut cell: Query<(Entity, &mut TextColor, &CandidateCell)>,
+    parent_query: Query<&Parent>,
+    q_select: Query<&SelectedCell>,
+) {
     let (entity, mut text_color, candidate_cell) = cell.get_mut(out.entity()).unwrap();
     for ancestor in parent_query.iter_ancestors(entity) {
         if q_select.get(ancestor).is_ok() && !candidate_cell.selected {
@@ -467,7 +514,12 @@ fn candidate_cell_out(out: Trigger<Pointer<Out>>, mut cell: Query<(Entity, &mut 
     }
 }
 
-fn candidate_cell_click(click: Trigger<Pointer<Click>>, mut cell: Query<&mut CandidateCell>, parent_query: Query<&Parent>, mut q_select: Query<&mut CellValue, With<SelectedCell>>) {
+fn candidate_cell_click(
+    click: Trigger<Pointer<Click>>,
+    mut cell: Query<&mut CandidateCell>,
+    parent_query: Query<&Parent>,
+    mut q_select: Query<&mut CellValue, With<SelectedCell>>,
+) {
     let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
     for ancestor in parent_query.iter_ancestors(click.entity()) {
         if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
@@ -481,7 +533,59 @@ fn candidate_cell_click(click: Trigger<Pointer<Click>>, mut cell: Query<&mut Can
                         candidate_cell.selected = true;
                         candidates.bitor_assign(Digit::new(candidate_cell.index).as_set());
                     }
-                    
+
+                    cell_value.0 = CellState::Candidates(candidates);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Event)]
+struct CheckSolver;
+
+fn check_solver(
+    _trigger: Trigger<CheckSolver>,
+    mut cell_query: Query<(&mut CellValue, &CellPosition)>,
+    mut sudoku_manager: ResMut<SudokuManager>,
+) {
+    let mut list = [CellState::Candidates(Set::NONE); 81];
+    for (cell_value, cell_position) in cell_query
+        .iter()
+        .sort_by::<&CellPosition>(|t1, t2| t1.0.cmp(&t2.0))
+    {
+        list[cell_position.0 as usize] = cell_value.0;
+    }
+    sudoku_manager.solver = StrategySolver::from_grid_state(list);
+
+    if sudoku_manager.solver.is_solved() {
+        info!("Sudoku solved!");
+    }
+}
+
+#[derive(Event)]
+pub struct KickCandidates {
+    pub digit: u8,
+    pub position: CellPosition,
+}
+
+fn kick_candidates(
+    trigger: Trigger<KickCandidates>,
+    mut q_cell: Query<(&mut CellValue, &CellPosition)>,
+) {
+    let digit = Digit::new(trigger.event().digit);
+    let kicker_position = trigger.event().position.clone();
+
+    for (mut cell_value, cell_position) in q_cell.iter_mut() {
+        if kicker_position.row() == cell_position.row()
+            || kicker_position.col() == cell_position.col()
+            || kicker_position.block() == cell_position.block()
+        {
+            match cell_value.0 {
+                CellState::Digit(_) => {}
+                CellState::Candidates(mut candidates) => {
+                    candidates.remove(digit.as_set());
+
                     cell_value.0 = CellState::Candidates(candidates);
                 }
             }

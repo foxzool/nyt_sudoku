@@ -13,8 +13,6 @@ use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 
 use bevy::app::App;
-#[cfg(debug_assertions)]
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 
 // This example game uses States to separate board
@@ -43,9 +41,9 @@ impl Plugin for GamePlugin {
             SudokuPlugin,
         ));
 
-        #[cfg(debug_assertions)]
-        {
-            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
-        }
+        // #[cfg(debug_assertions)]
+        // {
+        //     app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
+        // }
     }
 }

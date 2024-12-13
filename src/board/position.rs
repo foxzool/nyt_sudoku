@@ -1,7 +1,8 @@
 use bevy::prelude::Component;
+use std::fmt::Display;
 
 /// 数独格子的位置
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Copy, Debug)]
 pub struct CellPosition(pub u8);
 
 /// 快速计算宫格索引
@@ -35,4 +36,19 @@ impl CellPosition {
     pub fn block(&self) -> u8 {
         BLOCK[self.0 as usize]
     }
+}
+
+impl Display for CellPosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "({}, {})", self.row(), self.col())
+    }
+}
+
+#[test]
+fn test_row() {
+    assert_eq!(CellPosition::new(0).row(), 0);
+    assert_eq!(CellPosition::new(4).row(), 0);
+    assert_eq!(CellPosition::new(8).row(), 0);
+    assert_eq!(CellPosition::new(9).row(), 1);
+    assert_eq!(CellPosition::new(80).row(), 8);
 }

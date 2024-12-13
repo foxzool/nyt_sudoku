@@ -185,7 +185,7 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                             font_size: 14.0,
                                                             ..default()
                                                         },
-                                                        TextColor(Color::srgba_u8(83, 83, 83, 200)),
+                                                        TextColor(Color::srgba_u8(18, 18, 18, 0)),
                                                         TextLayout::new_with_justify(JustifyText::Center),
                                                         Node {
                                                             align_items: AlignItems::Center,
@@ -198,10 +198,16 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                             },
                                                             ..default()
                                                         },
-                                                        Visibility::Hidden,
+                                                        // Visibility::Hidden,
                                                         // BackgroundColor(Color::WHITE),
-                                                        CandidateCellIndex(i)
-                                                    ));
+                                                        CandidateCell {
+                                                            index: i,
+                                                            selected: false,
+                                                        }
+                                                    ))
+                                                        .observe(candidate_cell_move)
+                                                        .observe(candidate_cell_out)
+                                                    ;
                                                 }
                                             })
                                         ;
@@ -271,8 +277,11 @@ pub struct DigitCell;
 pub struct CandidatesContainer;
 
 /// 候选数字格子索引，从1到9
-#[derive(Component)]
-pub struct CandidateCellIndex(pub u8);
+#[derive(Component, Debug)]
+pub struct CandidateCell {
+    pub index: u8,
+    pub selected: bool,
+}
 
 #[derive(Component)]
 struct ControlLayout;
@@ -339,7 +348,7 @@ fn update_cell(
     cell: Query<(&CellValue, &Children, Option<&FixedCell>), Changed<CellValue>>,
     mut digit_cell: Query<(&mut Text, &mut Visibility), (With<DigitCell>, Without<CandidatesContainer>)>,
     mut candidates_container: Query<(&mut Visibility, &Children), (With<CandidatesContainer>, Without<DigitCell>)>,
-    mut candidate_cell: Query<(&mut BackgroundColor, &mut Visibility, &CandidateCellIndex), (Without<DigitCell>, Without<CandidatesContainer>)>,
+    mut candidate_cell: Query<(&mut TextColor, &mut Visibility, &mut CandidateCell), (Without<DigitCell>, Without<CandidatesContainer>)>,
 ) {
     for (cell_value, children, opt_fixed) in cell.iter() {
         for child in children.iter() {
@@ -360,21 +369,15 @@ fn update_cell(
                     if opt_fixed.is_some() {
                         continue;
                     }
-                    info!("candidates: {:?}", candidates);
                     if let Ok((mut visibility, children)) = candidates_container.get_mut(*child) {
                         *visibility = Visibility::Visible;
-                        // 隐藏所有候选数字
-                        for child in children {
-                            if let Ok((mut background, mut visibility, _candidate_index)) = candidate_cell.get_mut(*child) {
-                                *visibility = Visibility::Hidden;
-                            }
-                        }
                         for candidate in candidates.into_iter() {
                             for child in children {
-                                if let Ok((mut background, mut visibility, candidate_index)) = candidate_cell.get_mut(*child) {
+                                if let Ok((mut text_color, mut visibility, mut cell)) = candidate_cell.get_mut(*child) {
                                     let candidate_number = candidate.get();
-                                    if candidate_index.0 == candidate_number {
-                                        *visibility = Visibility::Visible;
+                                    if cell.index == candidate_number {
+                                        cell.selected = true;
+                                        *text_color = TextColor(Color::srgb_u8(18, 18, 18));
                                     }
                                 }
                             }
@@ -440,6 +443,24 @@ fn set_keyboard_input(
             }
 
             _ => {}
+        }
+    }
+}
+
+fn candidate_cell_move(trigger: Trigger<Pointer<Over>>, mut cell: Query<(Entity, &mut TextColor, &CandidateCell)>, parent_query: Query<&Parent>, q_select: Query<&SelectedCell>) {
+    let (entity, mut text_color, candidate_cell) = cell.get_mut(trigger.entity()).unwrap();
+    for ancestor in parent_query.iter_ancestors(entity) {
+        if q_select.get(ancestor).is_ok() && !candidate_cell.selected {
+            *text_color = TextColor(Color::srgba_u8(18, 18, 18, 200))
+        }
+    }
+}
+
+fn candidate_cell_out(out: Trigger<Pointer<Out>>, mut cell: Query<(Entity, &mut TextColor, &CandidateCell)>, parent_query: Query<&Parent>, q_select: Query<&SelectedCell>) {
+    let (entity, mut text_color, candidate_cell) = cell.get_mut(out.entity()).unwrap();
+    for ancestor in parent_query.iter_ancestors(entity) {
+        if q_select.get(ancestor).is_ok() && !candidate_cell.selected {
+            *text_color = TextColor(Color::srgba_u8(18, 18, 18, 0))
         }
     }
 }

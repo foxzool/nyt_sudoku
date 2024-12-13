@@ -2,7 +2,7 @@ use bevy::prelude::Component;
 use std::fmt::Display;
 
 /// 数独格子的位置
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CellPosition(pub u8);
 
 /// 快速计算宫格索引

@@ -40,6 +40,7 @@ impl Plugin for SudokuPlugin {
         .add_observer(on_select_cell)
         .add_observer(on_unselect_cell)
         .add_observer(check_solver)
+        .add_observer(check_conflict)
         .add_observer(kick_candidates);
     }
 }
@@ -377,11 +378,11 @@ fn update_cell(
             match cell_value.current() {
                 CellState::Digit(digit) => {
                     if let Ok((mut text, mut visibility)) = digit_cell.get_mut(*child) {
-                        info!("cell {} changed to digit {}", cell_position, digit.get());
+                        debug!("cell {} change to digit {}", cell_position, digit.get());
                         text.0 = digit.get().to_string();
                         *visibility = Visibility::Visible;
                         commands.trigger(CheckSolver);
-                        commands.trigger(KickCandidates {
+                        commands.trigger(NewValueChecker {
                             digit: digit.get(),
                             position: *cell_position,
                         });
@@ -392,8 +393,8 @@ fn update_cell(
                         continue;
                     }
 
-                    info!(
-                        "cell {} changed to candidates {:?}",
+                    debug!(
+                        "cell {} change to candidates {:?}",
                         cell_position,
                         candidates.into_iter().collect::<Vec<_>>()
                     );
@@ -434,6 +435,7 @@ fn on_click_cell(
 }
 
 fn set_keyboard_input(
+    mut commands: Commands,
     mut keyboard_input_events: EventReader<KeyboardInput>,
     mut selected_cell: Single<
         (&mut CellValue, Option<&FixedCell>, &CellPosition),
@@ -481,7 +483,11 @@ fn set_keyboard_input(
                 selected_cell.set(CellState::Digit(Digit::new(9)));
             }
             KeyCode::Delete => {
-                if let CellState::Digit(_) = selected_cell.current() {
+                if let CellState::Digit(digit) = selected_cell.current() {
+                    commands.trigger(NewValueChecker {
+                        digit: digit.get(),
+                        position: *cell_position,
+                    });
                     selected_cell.rollback();
                 }
             }
@@ -566,13 +572,13 @@ fn check_solver(
 }
 
 #[derive(Event)]
-pub struct KickCandidates {
+pub struct NewValueChecker {
     pub digit: u8,
     pub position: CellPosition,
 }
 
 fn kick_candidates(
-    trigger: Trigger<KickCandidates>,
+    trigger: Trigger<NewValueChecker>,
     mut q_cell: Query<(&mut CellValue, &CellPosition)>,
 ) {
     let digit = Digit::new(trigger.event().digit);
@@ -586,6 +592,32 @@ fn kick_candidates(
             if let CellState::Candidates(mut candidates) = cell_value.current() {
                 candidates.remove(digit.as_set());
                 cell_value.set(CellState::Candidates(candidates));
+            }
+        }
+    }
+}
+
+fn check_conflict(
+    trigger: Trigger<NewValueChecker>,
+    mut q_cell: Query<(&CellValue, &CellPosition)>,
+) {
+    let digit = Digit::new(trigger.event().digit);
+    let cell_position = trigger.event().position.clone();
+
+    for (other_cell_value, other_cell_position) in q_cell.iter() {
+        if cell_position.row() == other_cell_position.row()
+            || cell_position.col() == other_cell_position.col()
+            || cell_position.block() == other_cell_position.block()
+        {
+            if let CellState::Digit(other_digit) = other_cell_value.current() {
+                if digit == *other_digit && cell_position != *other_cell_position {
+                    info!(
+                        "{} {} Conflict detected! {:}",
+                        cell_position,
+                        digit.get(),
+                        other_cell_position
+                    );
+                }
             }
         }
     }

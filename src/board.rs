@@ -6,6 +6,7 @@ use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use bevy::render::view::visibility;
 use bevy::ui::OverflowAxis::Visible;
+use std::ops::{BitAnd, BitAndAssign, BitOrAssign};
 use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
 use sudoku::Sudoku;
@@ -207,6 +208,7 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     ))
                                                         .observe(candidate_cell_move)
                                                         .observe(candidate_cell_out)
+                                                        .observe(candidate_cell_click)
                                                     ;
                                                 }
                                             })
@@ -461,6 +463,28 @@ fn candidate_cell_out(out: Trigger<Pointer<Out>>, mut cell: Query<(Entity, &mut 
     for ancestor in parent_query.iter_ancestors(entity) {
         if q_select.get(ancestor).is_ok() && !candidate_cell.selected {
             *text_color = TextColor(Color::srgba_u8(18, 18, 18, 0))
+        }
+    }
+}
+
+fn candidate_cell_click(click: Trigger<Pointer<Click>>, mut cell: Query<&mut CandidateCell>, parent_query: Query<&Parent>, mut q_select: Query<&mut CellValue, With<SelectedCell>>) {
+    let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
+    for ancestor in parent_query.iter_ancestors(click.entity()) {
+        if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
+            match cell_value.0 {
+                CellState::Digit(_) => {}
+                CellState::Candidates(mut candidates) => {
+                    if candidate_cell.selected {
+                        candidate_cell.selected = false;
+                        candidates.remove(Digit::new(candidate_cell.index).as_set());
+                    } else {
+                        candidate_cell.selected = true;
+                        candidates.bitor_assign(Digit::new(candidate_cell.index).as_set());
+                    }
+                    
+                    cell_value.0 = CellState::Candidates(candidates);
+                }
+            }
         }
     }
 }

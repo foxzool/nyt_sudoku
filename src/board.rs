@@ -5,6 +5,7 @@ use bevy::color::palettes::basic::{BLACK, GRAY};
 use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use bevy::render::view::visibility;
+use bevy::ui::OverflowAxis::Visible;
 use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
 use sudoku::Sudoku;
@@ -143,7 +144,7 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             Text::new(cell.to_string()),
                                             TextFont {
                                                 font: font.clone(),
-                                                font_size: 42.0,
+                                                font_size: 46.0,
                                                 ..default()
                                             },
                                             TextColor(Color::srgb_u8(18, 18, 18)),
@@ -181,10 +182,10 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                         Text::new(i.to_string()),
                                                         TextFont {
                                                             font: font.clone(),
-                                                            font_size: 12.0,
+                                                            font_size: 14.0,
                                                             ..default()
                                                         },
-                                                        TextColor(Color::srgb_u8(18, 18, 18)),
+                                                        TextColor(Color::srgba_u8(83, 83, 83, 200)),
                                                         TextLayout::new_with_justify(JustifyText::Center),
                                                         Node {
                                                             align_items: AlignItems::Center,
@@ -197,6 +198,7 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                             },
                                                             ..default()
                                                         },
+                                                        Visibility::Hidden,
                                                         // BackgroundColor(Color::WHITE),
                                                         CandidateCellIndex(i)
                                                     ));
@@ -337,11 +339,11 @@ fn update_cell(
     cell: Query<(&CellValue, &Children, Option<&FixedCell>), Changed<CellValue>>,
     mut digit_cell: Query<(&mut Text, &mut Visibility), (With<DigitCell>, Without<CandidatesContainer>)>,
     mut candidates_container: Query<(&mut Visibility, &Children), (With<CandidatesContainer>, Without<DigitCell>)>,
-    mut candidate_cell: Query<(&mut Text, &CandidateCellIndex), Without<DigitCell>>,
+    mut candidate_cell: Query<(&mut BackgroundColor, &mut Visibility, &CandidateCellIndex), (Without<DigitCell>, Without<CandidatesContainer>)>,
 ) {
     for (cell_value, children, opt_fixed) in cell.iter() {
         for child in children.iter() {
-            if let Ok((mut _text, mut visibility)) = digit_cell.get_mut(*child) {
+            if let Ok((_text, mut visibility)) = digit_cell.get_mut(*child) {
                 *visibility = Visibility::Hidden;
             }
             if let Ok((mut visibility, _children)) = candidates_container.get_mut(*child) {
@@ -361,18 +363,18 @@ fn update_cell(
                     info!("candidates: {:?}", candidates);
                     if let Ok((mut visibility, children)) = candidates_container.get_mut(*child) {
                         *visibility = Visibility::Visible;
-                        // 清空所有候选数字
+                        // 隐藏所有候选数字
                         for child in children {
-                            if let Ok((mut text, _candidate_index)) = candidate_cell.get_mut(*child) {
-                                text.0 = "".to_string();
+                            if let Ok((mut background, mut visibility, _candidate_index)) = candidate_cell.get_mut(*child) {
+                                *visibility = Visibility::Hidden;
                             }
                         }
                         for candidate in candidates.into_iter() {
                             for child in children {
-                                if let Ok((mut text, candidate_index)) = candidate_cell.get_mut(*child) {
+                                if let Ok((mut background, mut visibility, candidate_index)) = candidate_cell.get_mut(*child) {
                                     let candidate_number = candidate.get();
                                     if candidate_index.0 == candidate_number {
-                                        text.0 = candidate_number.to_string();
+                                        *visibility = Visibility::Visible;
                                     }
                                 }
                             }

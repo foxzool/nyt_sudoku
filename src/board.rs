@@ -5,7 +5,7 @@ use bevy::color::palettes::basic::{BLACK, GRAY};
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::ButtonState;
 use bevy::prelude::*;
-use std::ops::{BitAnd, BitAndAssign, BitOrAssign};
+use std::ops::BitOrAssign;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
@@ -133,7 +133,7 @@ fn spawn_board(mut commands: Commands, asset_server: Res<AssetServer>) {
                             )).with_children(|builder| {
                                 // 格子
                                 builder.spawn((
-                                    CellPosition::new(cell),
+                                    CellPosition::from_block_row_col(block_index, bi),
                                     Node {
                                         align_items: AlignItems::Center,
                                         justify_items: JustifyItems::Center,
@@ -302,11 +302,11 @@ fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosit
     });
 
     'l: for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
-        let cell_value = CellValue(cell_state);
+        let cell_value = CellValue::new(cell_state);
 
         for (entity, cell_position) in cell_background.iter() {
             if cell_position.0 == index as u8 {
-                match &cell_value.0 {
+                match &cell_value.current() {
                     // 如果一开始就是数字，那么这个格子是固定颜色
                     CellState::Digit(_) => {
                         commands
@@ -374,10 +374,10 @@ fn update_cell(
             if let Ok((mut visibility, _children)) = candidates_container.get_mut(*child) {
                 *visibility = Visibility::Hidden;
             }
-            match cell_value.0 {
+            match cell_value.current() {
                 CellState::Digit(digit) => {
                     if let Ok((mut text, mut visibility)) = digit_cell.get_mut(*child) {
-                        info!("cell {} changed value {}", cell_position, digit.get());
+                        info!("cell {} changed to digit {}", cell_position, digit.get());
                         text.0 = digit.get().to_string();
                         *visibility = Visibility::Visible;
                         commands.trigger(CheckSolver);
@@ -393,7 +393,7 @@ fn update_cell(
                     }
 
                     info!(
-                        "cell {} changed value {:?}",
+                        "cell {} changed to candidates {:?}",
                         cell_position,
                         candidates.into_iter().collect::<Vec<_>>()
                     );
@@ -435,9 +435,12 @@ fn on_click_cell(
 
 fn set_keyboard_input(
     mut keyboard_input_events: EventReader<KeyboardInput>,
-    mut selected_cell: Single<(&mut CellValue, Option<&FixedCell>), With<SelectedCell>>,
+    mut selected_cell: Single<
+        (&mut CellValue, Option<&FixedCell>, &CellPosition),
+        With<SelectedCell>,
+    >,
 ) {
-    let (mut selected_cell, opt_fixed) = selected_cell.into_inner();
+    let (mut selected_cell, opt_fixed, cell_position) = selected_cell.into_inner();
     if opt_fixed.is_some() {
         return;
     }
@@ -448,37 +451,39 @@ fn set_keyboard_input(
 
         match event.key_code {
             KeyCode::Digit0 | KeyCode::Numpad0 => {
-                selected_cell.0 = CellState::Digit(Digit::new(0));
+                selected_cell.set(CellState::Digit(Digit::new(0)));
             }
             KeyCode::Digit1 | KeyCode::Numpad1 => {
-                selected_cell.0 = CellState::Digit(Digit::new(1));
+                selected_cell.set(CellState::Digit(Digit::new(1)));
             }
             KeyCode::Digit2 | KeyCode::Numpad2 => {
-                selected_cell.0 = CellState::Digit(Digit::new(2));
+                selected_cell.set(CellState::Digit(Digit::new(2)));
             }
             KeyCode::Digit3 | KeyCode::Numpad3 => {
-                selected_cell.0 = CellState::Digit(Digit::new(3));
+                selected_cell.set(CellState::Digit(Digit::new(3)));
             }
             KeyCode::Digit4 | KeyCode::Numpad4 => {
-                selected_cell.0 = CellState::Digit(Digit::new(4));
+                selected_cell.set(CellState::Digit(Digit::new(4)));
             }
             KeyCode::Digit5 | KeyCode::Numpad5 => {
-                selected_cell.0 = CellState::Digit(Digit::new(5));
+                selected_cell.set(CellState::Digit(Digit::new(5)));
             }
             KeyCode::Digit6 | KeyCode::Numpad6 => {
-                selected_cell.0 = CellState::Digit(Digit::new(6));
+                selected_cell.set(CellState::Digit(Digit::new(6)));
             }
             KeyCode::Digit7 | KeyCode::Numpad7 => {
-                selected_cell.0 = CellState::Digit(Digit::new(7));
+                selected_cell.set(CellState::Digit(Digit::new(7)));
             }
             KeyCode::Digit8 | KeyCode::Numpad8 => {
-                selected_cell.0 = CellState::Digit(Digit::new(8));
+                selected_cell.set(CellState::Digit(Digit::new(8)));
             }
             KeyCode::Digit9 | KeyCode::Numpad9 => {
-                selected_cell.0 = CellState::Digit(Digit::new(9));
+                selected_cell.set(CellState::Digit(Digit::new(9)));
             }
             KeyCode::Delete => {
-                selected_cell.0 = CellState::Candidates(Set::NONE);
+                if let CellState::Digit(_) = selected_cell.current() {
+                    selected_cell.rollback();
+                }
             }
 
             _ => {}
@@ -523,19 +528,16 @@ fn candidate_cell_click(
     let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
     for ancestor in parent_query.iter_ancestors(click.entity()) {
         if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
-            match cell_value.0 {
-                CellState::Digit(_) => {}
-                CellState::Candidates(mut candidates) => {
-                    if candidate_cell.selected {
-                        candidate_cell.selected = false;
-                        candidates.remove(Digit::new(candidate_cell.index).as_set());
-                    } else {
-                        candidate_cell.selected = true;
-                        candidates.bitor_assign(Digit::new(candidate_cell.index).as_set());
-                    }
-
-                    cell_value.0 = CellState::Candidates(candidates);
+            if let CellState::Candidates(mut candidates) = cell_value.current() {
+                if candidate_cell.selected {
+                    candidate_cell.selected = false;
+                    candidates.remove(Digit::new(candidate_cell.index).as_set());
+                } else {
+                    candidate_cell.selected = true;
+                    candidates.bitor_assign(Digit::new(candidate_cell.index).as_set());
                 }
+
+                cell_value.set(CellState::Candidates(candidates));
             }
         }
     }
@@ -554,7 +556,7 @@ fn check_solver(
         .iter()
         .sort_by::<&CellPosition>(|t1, t2| t1.0.cmp(&t2.0))
     {
-        list[cell_position.0 as usize] = cell_value.0;
+        list[cell_position.0 as usize] = cell_value.current().clone();
     }
     sudoku_manager.solver = StrategySolver::from_grid_state(list);
 
@@ -581,13 +583,9 @@ fn kick_candidates(
             || kicker_position.col() == cell_position.col()
             || kicker_position.block() == cell_position.block()
         {
-            match cell_value.0 {
-                CellState::Digit(_) => {}
-                CellState::Candidates(mut candidates) => {
-                    candidates.remove(digit.as_set());
-
-                    cell_value.0 = CellState::Candidates(candidates);
-                }
+            if let CellState::Candidates(mut candidates) = cell_value.current() {
+                candidates.remove(digit.as_set());
+                cell_value.set(CellState::Candidates(candidates));
             }
         }
     }

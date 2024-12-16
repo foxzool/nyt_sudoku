@@ -6,7 +6,7 @@ use crate::game::{
 use bevy::color::palettes::basic::GRAY;
 use bevy::prelude::*;
 
-pub(crate) fn main_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
+pub(crate) fn play_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
     builder
         .spawn((
             Node {

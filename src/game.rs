@@ -1,5 +1,6 @@
-use crate::game::board::main_board;
+use crate::game::board::play_board;
 use crate::game::cell_state::{CellValue, FixedCell};
+use crate::game::control::control_board;
 use crate::game::position::CellPosition;
 use crate::GameState;
 use bevy::color::palettes::basic::BLACK;
@@ -29,6 +30,7 @@ pub struct SudokuManager {
 /// Player game is only active during the State `GameState::Playing`
 impl Plugin for SudokuPlugin {
     fn build(&self, app: &mut App) {
+        control::plugin(app);
         app.add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(
                 Update,
@@ -44,83 +46,53 @@ impl Plugin for SudokuPlugin {
 
 fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/franklin-normal-600.ttf");
-    commands.spawn((
-        Node {
-            // 使用网格布局
-            display: Display::Grid,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            // 网格有两列，第一列宽度为内容宽度，第二列宽度为剩余空间
-            grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
-            // 网格有两行，第一行高度为内容高度，第二行占据剩余空间
-            grid_template_rows: vec![
-                GridTrack::px(60.),
-                // GridTrack::auto(),
-                GridTrack::flex(1.0)
-            ],
-            ..default()
-        },
-        BackgroundColor(Color::WHITE),
-    )).with_children(|builder| {
-        // 顶部菜单栏
-        builder
-            .spawn(
-                Node {
+    commands
+        .spawn((
+            Node {
+                // 使用网格布局
+                display: Display::Grid,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                // 网格有两列，第一列宽度为内容宽度，第二列宽度为剩余空间
+                grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
+                // 网格有两行，第一行高度为内容高度，第二行占据剩余空间
+                grid_template_rows: vec![
+                    GridTrack::px(60.),
+                    // GridTrack::auto(),
+                    GridTrack::flex(1.0),
+                    GridTrack::px(60.),
+                ],
+                ..default()
+            },
+            BackgroundColor(Color::WHITE),
+        ))
+        .with_children(|builder| {
+            // 顶部菜单栏
+            builder
+                .spawn(Node {
                     display: Display::Grid,
                     // Make this node span two grid columns so that it takes up the entire top tow
                     grid_column: GridPlacement::span(2),
                     padding: UiRect::all(Val::Px(6.0)),
                     ..default()
-                },
-            )
-            .with_children(|builder| {
-                builder.spawn((
-                    Text::new("top-level grid"),
-                    TextFont { font: font.clone(), ..default() },
-                    TextColor::BLACK,
-                ));
-            });
+                })
+                .with_children(|builder| {
+                    builder.spawn((
+                        Text::new("top-level grid"),
+                        TextFont {
+                            font: font.clone(),
+                            ..default()
+                        },
+                        TextColor::BLACK,
+                    ));
+                });
 
-        // 格子布局容器
-        main_board(&font, builder);
+            // 格子布局容器
+            play_board(&font, builder);
 
-        // 右侧边栏
-        builder
-            .spawn((
-                Node {
-                    display: Display::Grid,
-                    // Align content towards the start (top) in the vertical axis
-                    align_items: AlignItems::Start,
-                    // Align content towards the center in the horizontal axis
-                    justify_items: JustifyItems::Center,
-                    // Add 10px padding
-                    padding: UiRect::all(Val::Px(10.)),
-                    // Add an fr track to take up all the available space at the bottom of the column so that the text nodes
-                    // can be top-aligned. Normally you'd use flexbox for this, but this is the CSS Grid example so we're using grid.
-                    grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)],
-                    // Add a 10px gap between rows
-                    row_gap: Val::Px(10.),
-                    ..default()
-                },
-                BackgroundColor(BLACK.into()),
-            ))
-            .with_children(|builder| {
-                builder.spawn((Text::new("Sidebar"),
-                               TextFont {
-                                   font: font.clone(),
-                                   ..default()
-                               },
-                ));
-                builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
-                               TextFont {
-                                   font: font.clone(),
-                                   font_size: 13.0,
-                                   ..default()
-                               },
-                ));
-                builder.spawn(Node::default());
-            });
-    });
+            // 右侧边栏
+            control_board(&font, builder);
+        });
 }
 
 ///  选中的格子

@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+pub mod color;
 mod game;
 mod loading;
 mod menu;

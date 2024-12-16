@@ -1,24 +1,32 @@
 use bevy::prelude::*;
-
+use sudoku::bitset::Set;
 use sudoku::board::CellState;
 
 /// 格子的值
 #[derive(Component, Debug)]
 pub struct CellValue {
     current: CellState,
-    previous: CellState,
+    candidates: CellState,
 }
 
 impl CellValue {
     pub fn new(current: CellState) -> Self {
+        let candidates = match current {
+            CellState::Digit(_) => CellState::Candidates(Set::NONE),
+            CellState::Candidates(_) => current,
+        };
+
         Self {
             current,
-            previous: current,
+            candidates,
         }
     }
 
     pub fn set(&mut self, new: CellState) {
-        self.previous = self.current;
+        if let CellState::Candidates(_) = new {
+            self.candidates = new;
+        }
+
         self.current = new;
     }
 
@@ -27,7 +35,7 @@ impl CellValue {
     }
 
     pub fn rollback(&mut self) {
-        std::mem::swap(&mut self.current, &mut self.previous);
+        self.current = self.candidates;
     }
 
     pub fn is_digit(&self) -> bool {

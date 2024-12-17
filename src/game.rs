@@ -1,9 +1,10 @@
+use crate::color::*;
 use crate::game::board::play_board;
 use crate::game::cell_state::{CellValue, FixedCell};
 use crate::game::control::control_board;
 use crate::game::position::CellPosition;
 use crate::GameState;
-use bevy::color::palettes::basic::BLACK;
+use bevy::color::palettes::basic::RED;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::ButtonState;
 use bevy::prelude::*;
@@ -45,53 +46,121 @@ impl Plugin for SudokuPlugin {
 }
 
 fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/franklin-normal-600.ttf");
+    let font = asset_server.load("fonts/franklin-normal-500.ttf");
+
     commands
         .spawn((
+            Name::new("sudoku-content"),
             Node {
-                // 使用网格布局
-                display: Display::Grid,
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                // 网格有两列，第一列宽度为内容宽度，第二列宽度为剩余空间
-                grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
-                // 网格有两行，第一行高度为内容高度，第二行占据剩余空间
-                grid_template_rows: vec![
-                    GridTrack::px(60.),
-                    // GridTrack::auto(),
-                    GridTrack::flex(1.0),
-                    GridTrack::px(60.),
-                ],
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexStart,
+
                 ..default()
             },
-            BackgroundColor(Color::WHITE),
+            // BackgroundColor(RED.into()),
         ))
         .with_children(|builder| {
-            // 顶部菜单栏
+            // 顶部 LOGO
+            title_bar(asset_server, &font, builder);
+
             builder
-                .spawn(Node {
-                    display: Display::Grid,
-                    // Make this node span two grid columns so that it takes up the entire top tow
-                    grid_column: GridPlacement::span(2),
-                    padding: UiRect::all(Val::Px(6.0)),
-                    ..default()
-                })
+                .spawn((
+                    Name::new("game-wrapper"),
+                    Node {
+                        position_type: PositionType::Relative,
+                        ..default()
+                    },
+                ))
                 .with_children(|builder| {
-                    builder.spawn((
-                        Text::new("top-level grid"),
-                        TextFont {
-                            font: font.clone(),
-                            ..default()
-                        },
-                        TextColor::BLACK,
-                    ));
+                    // 格子布局容器
+                    play_board(&font, builder);
+
+                    // 右侧边栏
+                    control_board(&font, builder);
                 });
+        });
+}
 
-            // 格子布局容器
-            play_board(&font, builder);
+/// 顶部标题栏
+fn title_bar(asset_server: Res<AssetServer>, font: &Handle<Font>, builder: &mut ChildBuilder) {
+    builder
+        .spawn((
+            Name::new("title-bar"),
+            Node {
+                padding: UiRect::vertical(Val::Px(24.0)),
+                display: Display::Flex,
+                ..default()
+            },
+            BackgroundColor(WHITE_COLOR),
+        ))
+        .with_children(|builder| {
+            builder
+                .spawn((
+                    Name::new("title-wrapper"),
+                    Node {
+                        display: Display::Flex,
+                        margin: UiRect::axes(Val::Auto, Val::Px(0.0)),
+                        // padding: UiRect::all(Val::Px(8.0)),
+                        // min_height: Val::Px(1.0),
+                        max_width: Val::Px(1280.0),
+                        width: Val::Px(1280.0),
+                        align_items: AlignItems::Baseline,
+                        ..default()
+                    },
+                    // BackgroundColor(GAME_YELLOW),
+                ))
+                .with_children(|builder| {
+                    builder
+                        .spawn((
+                            Name::new("game-title"),
+                            Node {
+                                margin: UiRect {
+                                    // top: Val::Px(10.0),
+                                    right: Val::Px(16.0),
+                                    ..default()
+                                },
+                                // padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
+                                ..default()
+                            },
+                            // BackgroundColor(GRAY2),
+                        ))
+                        .with_children(|p| {
+                            p.spawn((
+                                Text::new("Sudoku"),
+                                TextFont {
+                                    font_size: 42.0,
+                                    font: asset_server.load("fonts/NYTKarnakCondensed.ttf"),
+                                    ..default()
+                                },
+                                TextColor::BLACK,
+                            ));
+                        });
 
-            // 右侧边栏
-            control_board(&font, builder);
+                    builder
+                        .spawn((
+                            Name::new("game-date"),
+                            Node {
+                                bottom: Val::Px(6.0),
+                                // padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
+                                ..default()
+                            },
+                            // BackgroundColor(GRAY),
+                        ))
+                        .with_children(|p| {
+                            p.spawn((
+                                Text::new("December 17, 2024"),
+                                TextFont {
+                                    font_size: 28.0,
+                                    font: font.clone(),
+                                    ..default()
+                                },
+                                TextColor::BLACK,
+                            ));
+                        });
+                });
         });
 }
 
@@ -192,7 +261,7 @@ fn update_cell(
         (With<CandidatesContainer>, Without<DigitCell>),
     >,
     mut candidate_cell: Query<
-        (&mut TextColor, &mut Visibility, &mut CandidateCell),
+        (&mut TextColor, &mut CandidateCell),
         (Without<DigitCell>, Without<CandidatesContainer>),
     >,
 ) {
@@ -232,9 +301,7 @@ fn update_cell(
                         *visibility = Visibility::Visible;
 
                         for child in children {
-                            if let Ok((mut text_color, mut visibility, mut cell)) =
-                                candidate_cell.get_mut(*child)
-                            {
+                            if let Ok((mut text_color, mut cell)) = candidate_cell.get_mut(*child) {
                                 if candidates.contains(Digit::new(cell.index).as_set()) {
                                     cell.selected = true;
                                     *text_color = TextColor(Color::srgb_u8(18, 18, 18));

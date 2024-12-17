@@ -64,33 +64,241 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|builder| {
             // 顶部 LOGO
-            title_bar(asset_server, &font, builder);
+            title_bar(&asset_server, &font, builder);
 
             builder
                 .spawn((
-                    Name::new("game-wrapper"),
+                    Name::new("game-content"),
                     Node {
-                        position_type: PositionType::Relative,
+                        height: Val::Vh(90.0),
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Column,
                         ..default()
                     },
+                    // BackgroundColor(RED.into()),
                 ))
                 .with_children(|builder| {
-                    // 格子布局容器
-                    play_board(&font, builder);
+                    builder
+                        .spawn((
+                            Name::new("tool-bar"),
+                            Node {
+                                border: UiRect::vertical(Val::Px(1.0)),
+                                ..default()
+                            },
+                            BorderColor(EXTRA_LIGHT_GRAY),
+                            BackgroundColor(WHITE_COLOR),
+                        ))
+                        .with_children(|builder| {
+                            builder
+                                .spawn((
+                                    Name::new("toolbar-row"),
+                                    Node {
+                                        width: Val::Percent(100.0),
+                                        max_width: Val::Px(1280.0),
+                                        margin: UiRect::axes(Val::Auto, Val::Px(12.0)),
+                                        padding: UiRect::axes(Val::Px(24.0), Val::Px(0.0)),
+                                        display: Display::Flex,
+                                        flex_wrap: FlexWrap::NoWrap,
+                                        justify_content: JustifyContent::SpaceBetween,
+                                        ..default()
+                                    },
+                                    BorderColor(BLACK),
+                                ))
+                                .with_children(|builder| {
+                                    // left bar
+                                    left_bar(&asset_server, &font, builder);
+                                    // center bar
+                                    center_bar(&asset_server, &font, builder);
+                                    // right bar
+                                    right_bar(&asset_server, builder);
+                                });
+                        });
 
-                    // 右侧边栏
-                    control_board(&font, builder);
+                    builder
+                        .spawn((
+                            Name::new("game-root"),
+                            Node {
+                                display: Display::Flex,
+                                ..default()
+                            },
+                            // BackgroundColor(RED.into()),
+                        ))
+                        .with_children(|builder| {
+                            // 格子布局容器
+                            play_board(&font, builder);
+
+                            // 右侧边栏
+                            control_board(&font, builder);
+                        });
+                });
+        });
+}
+
+fn right_bar(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
+    builder
+        .spawn((
+            Name::new("right-bar"),
+            Node {
+                width: Val::Px(350.0),
+                margin: UiRect {
+                    left: Val::Auto,
+                    ..default()
+                },
+                display: Display::Flex,
+                justify_content: JustifyContent::FlexEnd,
+                ..default()
+            },
+        ))
+        .with_children(|builder| {
+            builder.spawn((
+                ImageNode {
+                    image: asset_server.load("textures/question.png"),
+                    ..default()
+                },
+                Node {
+                    width: Val::Px(20.0),
+                    margin: UiRect {
+                        left: Val::Px(10.0),
+                        right: Val::Px(10.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+            ));
+
+            builder.spawn((
+                ImageNode {
+                    image: asset_server.load("textures/more.png"),
+                    ..default()
+                },
+                Node {
+                    width: Val::Px(20.0),
+                    margin: UiRect {
+                        left: Val::Px(10.0),
+                        right: Val::Px(10.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+            ));
+
+            builder.spawn((
+                ImageNode {
+                    image: asset_server.load("textures/setting.png"),
+                    ..default()
+                },
+                Node {
+                    width: Val::Px(20.0),
+                    margin: UiRect {
+                        left: Val::Px(10.0),
+                        right: Val::Px(10.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+            ));
+        });
+}
+
+fn center_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut ChildBuilder) {
+    builder
+        .spawn((
+            Name::new("center-bar"),
+            Node {
+                display: Display::Flex,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+        ))
+        .with_children(|builder| {
+            builder.spawn((
+                Text::new("1:02:34"),
+                TextFont {
+                    font_size: 16.0,
+                    font: font.clone(),
+                    ..default()
+                },
+                TextColor(DARK_BLACK),
+            ));
+
+            builder.spawn((
+                ImageNode {
+                    image: asset_server.load("textures/pause.png"),
+                    ..default()
+                },
+                Node {
+                    margin: UiRect {
+                        left: Val::Px(5.0),
+                        ..default()
+                    },
+                    width: Val::Px(11.0),
+                    ..default()
+                },
+            ));
+        });
+}
+
+fn left_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut ChildBuilder) {
+    builder
+        .spawn((
+            Name::new("left-tool-bar"),
+            Node {
+                width: Val::Px(350.0),
+                margin: UiRect {
+                    right: Val::Auto,
+                    ..default()
+                },
+                display: Display::Flex,
+                justify_content: JustifyContent::FlexStart,
+                ..default()
+            },
+        ))
+        .with_children(|builder| {
+            builder
+                .spawn((Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },))
+                .with_children(|builder| {
+                    builder.spawn((
+                        ImageNode {
+                            image: asset_server.load("textures/back.png"),
+                            ..default()
+                        },
+                        Node {
+                            // width: Val::Px(11.0),
+                            margin: UiRect {
+                                right: Val::Px(4.0),
+                                ..default()
+                            },
+                            height: Val::Px(19.0),
+                            ..default()
+                        },
+                    ));
+
+                    builder.spawn((
+                        Text::new("Back"),
+                        TextFont {
+                            font_size: 16.0,
+                            font: font.clone(),
+                            ..default()
+                        },
+                        TextColor(DARK_BLACK),
+                    ));
                 });
         });
 }
 
 /// 顶部标题栏
-fn title_bar(asset_server: Res<AssetServer>, font: &Handle<Font>, builder: &mut ChildBuilder) {
+fn title_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut ChildBuilder) {
     builder
         .spawn((
             Name::new("title-bar"),
             Node {
-                padding: UiRect::vertical(Val::Px(24.0)),
                 display: Display::Flex,
                 ..default()
             },
@@ -103,8 +311,7 @@ fn title_bar(asset_server: Res<AssetServer>, font: &Handle<Font>, builder: &mut 
                     Node {
                         display: Display::Flex,
                         margin: UiRect::axes(Val::Auto, Val::Px(0.0)),
-                        // padding: UiRect::all(Val::Px(8.0)),
-                        // min_height: Val::Px(1.0),
+                        padding: UiRect::all(Val::Px(24.0)), 
                         max_width: Val::Px(1280.0),
                         width: Val::Px(1280.0),
                         align_items: AlignItems::Baseline,

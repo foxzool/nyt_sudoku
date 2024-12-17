@@ -1,35 +1,37 @@
+use crate::color::*;
 use crate::game::position::CellPosition;
 use crate::game::{
     candidate_cell_click, candidate_cell_move, candidate_cell_out, on_click_cell, CandidateCell,
     CandidatesContainer, CellGrid, DigitCell,
 };
-use bevy::color::palettes::basic::GRAY;
 use bevy::prelude::*;
 
-pub(crate) fn play_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
+pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
     builder
         .spawn((
             Node {
-                margin: UiRect::axes(Val::Px(24.0), Val::Px(0.)),
+                width: Val::Vh(80.0),
+                // min_width: Val::Px(500.0),
+                // max_width: Val::Px(800.0),
                 ..default()
-            }, BackgroundColor(GRAY.into()),
+            }, BackgroundColor(*DARK_BLACK),
         )).with_children(|builder| {
         // 生成9宫格布局
         builder
             .spawn((
                 Node {
-                    height: Val::Percent(100.0),
+                    width: Val::Percent(100.0),
                     aspect_ratio: Some(1.0),
                     display: Display::Grid,
                     grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
                     grid_template_rows: RepeatedGridTrack::flex(3, 1.0),
                     row_gap: Val::Px(4.0),
                     column_gap: Val::Px(4.0),
-                    border: UiRect::all(Val::Px(4.0)),
+                    border: UiRect::all(Val::Px(5.0)),
                     ..default()
                 },
                 // BorderColor(Color::BLACK),
-                // BackgroundColor(Color::WHITE),
+                BackgroundColor(*GRAY),
                 // CellsLayout,
             ))
             .with_children(|builder| {
@@ -48,7 +50,7 @@ pub(crate) fn play_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                                 // border: UiRect::all(Val::Px(1.)),
                                 ..default()
                             },
-                            BackgroundColor(GRAY.into()),
+                            BackgroundColor(*GRAY),
                         ))
                         .with_children(|builder| {
                             // 生成宫格里的9个格子
@@ -80,8 +82,8 @@ pub(crate) fn play_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                                                 builder.spawn((
                                                     Text::new(cell.to_string()),
                                                     TextFont {
-                                                        font: font.clone(),
-                                                        font_size: 46.0,
+                                                        font: asset_server.load("fonts/franklin-normal-800.ttf"),
+                                                        font_size: 48.0,
                                                         ..default()
                                                     },
                                                     TextColor(Color::srgb_u8(18, 18, 18)),
@@ -123,8 +125,8 @@ pub(crate) fn play_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                                                                 .spawn((
                                                                     Text::new(i.to_string()),
                                                                     TextFont {
-                                                                        font: font.clone(),
-                                                                        font_size: 14.0,
+                                                                        font: asset_server.load("fonts/franklin-normal-700.ttf"),
+                                                                        font_size: 16.0,
                                                                         ..default()
                                                                     },
                                                                     TextColor(Color::srgba_u8(

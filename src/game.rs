@@ -46,7 +46,7 @@ impl Plugin for SudokuPlugin {
 }
 
 fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/franklin-normal-500.ttf");
+    let font5 = asset_server.load("fonts/franklin-normal-500.ttf");
 
     commands
         .spawn((
@@ -64,7 +64,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|builder| {
             // 顶部 LOGO
-            title_bar(&asset_server, &font, builder);
+            title_bar(&asset_server, &font5, builder);
 
             builder
                 .spawn((
@@ -75,7 +75,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flex_direction: FlexDirection::Column,
                         ..default()
                     },
-                    // BackgroundColor(RED.into()),
+                    BackgroundColor(WHITE_COLOR),
                 ))
                 .with_children(|builder| {
                     builder
@@ -85,7 +85,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 border: UiRect::vertical(Val::Px(1.0)),
                                 ..default()
                             },
-                            BorderColor(EXTRA_LIGHT_GRAY),
+                            BorderColor(*EXTRA_LIGHT_GRAY),
                             BackgroundColor(WHITE_COLOR),
                         ))
                         .with_children(|builder| {
@@ -102,13 +102,13 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         justify_content: JustifyContent::SpaceBetween,
                                         ..default()
                                     },
-                                    BorderColor(BLACK),
+                                    BorderColor(*BLACK),
                                 ))
                                 .with_children(|builder| {
                                     // left bar
-                                    left_bar(&asset_server, &font, builder);
+                                    left_bar(&asset_server, &font5, builder);
                                     // center bar
-                                    center_bar(&asset_server, &font, builder);
+                                    center_bar(&asset_server, &font5, builder);
                                     // right bar
                                     right_bar(&asset_server, builder);
                                 });
@@ -118,17 +118,29 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn((
                             Name::new("game-root"),
                             Node {
-                                display: Display::Flex,
+                                height: Val::Percent(100.0),
+                                padding: UiRect::all(Val::Px(13.0)),
+                                // margin: UiRect::vertical(Val::Px(20.0)),
                                 ..default()
                             },
                             // BackgroundColor(RED.into()),
                         ))
                         .with_children(|builder| {
-                            // 格子布局容器
-                            play_board(&font, builder);
+                            builder
+                                .spawn(Node {
+                                    display: Display::Flex,
+                                    align_items: AlignItems::Stretch,
+                                    justify_content: JustifyContent::Center,
+                                    margin: UiRect::axes(Val::Auto, Val::Px(20.0)),
+                                    ..default()
+                                })
+                                .with_children(|builder| {
+                                    // 格子布局容器
+                                    play_board(&asset_server, builder);
 
-                            // 右侧边栏
-                            control_board(&font, builder);
+                                    // 右侧边栏
+                                    control_board(&font5, builder);
+                                });
                         });
                 });
         });
@@ -219,7 +231,7 @@ fn center_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mu
                     font: font.clone(),
                     ..default()
                 },
-                TextColor(DARK_BLACK),
+                TextColor(*DARK_BLACK),
             ));
 
             builder.spawn((
@@ -287,7 +299,7 @@ fn left_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut 
                             font: font.clone(),
                             ..default()
                         },
-                        TextColor(DARK_BLACK),
+                        TextColor(*DARK_BLACK),
                     ));
                 });
         });
@@ -311,7 +323,7 @@ fn title_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut
                     Node {
                         display: Display::Flex,
                         margin: UiRect::axes(Val::Auto, Val::Px(0.0)),
-                        padding: UiRect::all(Val::Px(24.0)), 
+                        padding: UiRect::all(Val::Px(24.0)),
                         max_width: Val::Px(1280.0),
                         width: Val::Px(1280.0),
                         align_items: AlignItems::Baseline,
@@ -419,7 +431,7 @@ fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosit
                             .entity(entity)
                             .insert(FixedCell)
                             .insert(cell_value)
-                            .insert(BackgroundColor(FIXED_COLOR));
+                            .insert(BackgroundColor(*EXTRA_LIGHT_GRAY));
                     }
                     CellState::Candidates(_) => {
                         commands.entity(entity).insert(cell_value);
@@ -432,13 +444,10 @@ fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosit
     }
 }
 
-const SELECTED_COLOR: Color = Color::linear_rgb(0.902, 0.773, 0.);
-const FIXED_COLOR: Color = Color::linear_rgb(0.914, 0.914, 0.914);
-
 fn on_select_cell(trigger: Trigger<OnInsert, SelectedCell>, mut cell: Query<&mut BackgroundColor>) {
     let entity = trigger.entity();
     if let Ok(mut background) = cell.get_mut(entity) {
-        background.0 = SELECTED_COLOR;
+        background.0 = *STRANDS_YELLOW;
     }
 }
 
@@ -449,7 +458,7 @@ fn on_unselect_cell(
     let entity = trigger.entity();
     if let Ok((mut background, opt_fixed)) = cell.get_mut(entity) {
         if opt_fixed.is_some() {
-            background.0 = FIXED_COLOR;
+            background.0 = *EXTRA_LIGHT_GRAY;
         } else {
             background.0 = Color::WHITE;
         }
@@ -511,7 +520,7 @@ fn update_cell(
                             if let Ok((mut text_color, mut cell)) = candidate_cell.get_mut(*child) {
                                 if candidates.contains(Digit::new(cell.index).as_set()) {
                                     cell.selected = true;
-                                    *text_color = TextColor(Color::srgb_u8(18, 18, 18));
+                                    *text_color = TextColor(*LIGHT_GRAY);
                                 } else {
                                     cell.selected = false;
                                     *text_color = TextColor(Color::srgba_u8(18, 18, 18, 0));

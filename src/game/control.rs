@@ -59,7 +59,7 @@ pub(crate) fn control_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                                 padding: UiRect::axes(Val::Px(6.0), Val::Px(1.0)),
                                 ..Default::default()
                             },
-                            BackgroundColor(DARK_BLACK),
+                            BackgroundColor(*DARK_BLACK),
                             ChangeTab(ControlTab::Normal),
                             BorderRadius::left(Val::Px(3.0)),
                             // BorderColor(WHITE_COLOR),
@@ -95,7 +95,7 @@ pub(crate) fn control_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                             BackgroundColor(WHITE_COLOR),
                             ChangeTab(ControlTab::Candidate),
                             BorderRadius::right(Val::Px(3.0)),
-                            BorderColor(LIGHT_GRAY),
+                            BorderColor(*LIGHT_GRAY),
                         ))
                         .with_child((
                             Text::new("Candidate"),
@@ -104,7 +104,7 @@ pub(crate) fn control_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                                 font_size: 14.0,
                                 ..default()
                             },
-                            TextColor(DARK_GRAY),
+                            TextColor(*DARK_GRAY),
                         ))
                         .observe(
                             |trigger: Trigger<Pointer<Click>>,
@@ -134,7 +134,7 @@ fn update_control_tab(
 
     for (change_tab, mut node, mut bg, mut border_color, children) in tab_query.iter_mut() {
         if change_tab.0 == selected_tab.0 {
-            bg.0 = DARK_BLACK;
+            bg.0 = *DARK_BLACK;
             border_color.0 = WHITE_COLOR;
             for child in children {
                 if let Ok(mut text_color) = text_color.get_mut(*child) {
@@ -143,10 +143,10 @@ fn update_control_tab(
             }
         } else {
             bg.0 = WHITE_COLOR;
-            border_color.0 = LIGHT_GRAY;
+            border_color.0 = *LIGHT_GRAY;
             for child in children {
                 if let Ok(mut text_color) = text_color.get_mut(*child) {
-                    text_color.0 = DARK_GRAY;
+                    text_color.0 = *DARK_GRAY;
                 }
             }
         }

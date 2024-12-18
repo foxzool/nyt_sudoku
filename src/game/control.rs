@@ -1,11 +1,17 @@
 use crate::color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR};
+use crate::game::AutoCandidateMode;
 use bevy::prelude::*;
 
 pub(crate) fn plugin(app: &mut App) {
-    app.init_resource::<SelectedTab>().add_systems(
-        Update,
-        (update_control_tab, show_number).run_if(resource_changed::<SelectedTab>),
-    );
+    app.init_resource::<SelectedTab>()
+        .add_systems(
+            Update,
+            (update_control_tab, show_number).run_if(resource_changed::<SelectedTab>),
+        )
+        .add_systems(
+            Update,
+            (update_auto_candidate_icon,).run_if(resource_changed::<AutoCandidateMode>),
+        );
 }
 
 #[derive(Component)]
@@ -126,6 +132,7 @@ pub(crate) fn control_board(
                         );
                 });
 
+            // 数字键盘
             builder
                 .spawn((
                     Name::new("keyboard_container"),
@@ -260,8 +267,92 @@ pub(crate) fn control_board(
                                 },
                             ));
                         });
+
+                    // 自动候选模式
+                    builder
+                        .spawn((
+                            Name::new("auto"),
+                            Node {
+                                margin: UiRect {
+                                    top: Val::Px(10.0),
+                                    ..default()
+                                },
+                                display: Display::Flex,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                        ))
+                        .observe(on_click_auto_candidate)
+                        .with_children(|builder| {
+                            builder.spawn((
+                                ImageNode::new(asset_server.load("textures/blank-check-box.png")),
+                                Node {
+                                    width: Val::Px(13.0),
+                                    height: Val::Px(13.0),
+                                    position_type: PositionType::Absolute,
+                                    ..default()
+                                },
+                                AutoCandidateNotCheck,
+                            ));
+
+                            builder.spawn((
+                                Visibility::Hidden,
+                                ImageNode::new(asset_server.load("textures/check.png")),
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    width: Val::Px(13.0),
+                                    height: Val::Px(13.0),
+                                    ..default()
+                                },
+                                AutoCandidateCheck,
+                            ));
+
+                            builder.spawn((
+                                Text::new("Auto Candidate Mode"),
+                                TextFont {
+                                    font: asset_server.load("fonts/franklin-normal-600.ttf"),
+                                    font_size: 16.0,
+                                    ..default()
+                                },
+                                TextColor(*DARK_BLACK),
+                                Node {
+                                    margin: UiRect {
+                                        left: Val::Px(18.0),
+                                        ..default()
+                                    },
+                                    ..default()
+                                }
+                            ));
+                        });
                 });
         });
+}
+
+#[derive(Component)]
+struct AutoCandidateNotCheck;
+
+#[derive(Component)]
+struct AutoCandidateCheck;
+
+fn on_click_auto_candidate(_trigger: Trigger<Pointer<Click>>, mut auto: ResMut<AutoCandidateMode>) {
+    auto.0 = !auto.0;
+}
+
+fn update_auto_candidate_icon(
+    auto: Res<AutoCandidateMode>,
+    mut check: Single<&mut Visibility, (With<AutoCandidateCheck>, Without<AutoCandidateNotCheck>)>,
+    mut not_check: Single<
+        &mut Visibility,
+        (Without<AutoCandidateCheck>, With<AutoCandidateNotCheck>),
+    >,
+) {
+    if auto.0 {
+        **check = Visibility::Visible;
+        **not_check = Visibility::Hidden;
+    } else {
+        **check = Visibility::Hidden;
+        **not_check = Visibility::Visible;
+    }
 }
 
 fn show_number(

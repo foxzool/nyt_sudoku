@@ -34,7 +34,9 @@ pub struct SudokuManager {
 impl Plugin for SudokuPlugin {
     fn build(&self, app: &mut App) {
         control::plugin(app);
-        app.add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
+        app
+            .init_resource::<AutoCandidateMode>()
+            .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(
                 Update,
                 (show_cell_value, keyboard_input, show_conflict)
@@ -154,8 +156,6 @@ fn toolbars(asset_server: &Res<AssetServer>, font5: &Handle<Font>, builder: &mut
                     right_bar(&asset_server, builder);
                 });
         });
-
-
 }
 
 fn right_bar(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
@@ -775,3 +775,6 @@ fn remove_conflict(
         }
     }
 }
+
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct AutoCandidateMode(pub bool);

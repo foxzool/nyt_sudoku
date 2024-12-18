@@ -6,7 +6,8 @@ use sudoku::board::CellState;
 #[derive(Component, Debug)]
 pub struct CellValue {
     current: CellState,
-    candidates: CellState,
+    auto_candidates: CellState,
+    manual_candidates: CellState,
 }
 
 impl CellValue {
@@ -18,32 +19,52 @@ impl CellValue {
 
         Self {
             current,
-            candidates,
+            auto_candidates: candidates,
+            manual_candidates: CellState::Candidates(Set::NONE),
         }
     }
 
-    pub fn set(&mut self, new: CellState) {
+    pub fn set(&mut self, new: CellState, auto_mode: bool) {
         if let CellState::Candidates(_) = new {
-            self.candidates = new;
+            if auto_mode {
+                self.auto_candidates = new;
+            } else {
+                self.manual_candidates = new;
+            }
         }
 
         self.current = new;
     }
 
-    pub fn current(&self) -> &CellState {
-        &self.current
+    pub fn current(&self, auto_mode: bool) -> &CellState {
+        match self.current {
+            CellState::Digit(_) => &self.current,
+            CellState::Candidates(_) => {
+                if auto_mode {
+                    &self.auto_candidates
+                } else {
+                    &self.manual_candidates
+                }
+            }
+        }
     }
 
-    pub fn rollback(&mut self) {
-        self.current = self.candidates;
-    }
-
-    pub fn is_digit(&self) -> bool {
-        matches!(self.current, CellState::Digit(_))
-    }
-
-    pub fn is_candidates(&self) -> bool {
-        matches!(self.current, CellState::Candidates(_))
+    pub fn rollback(&mut self, auto_mode: bool) {
+        match self.current {
+            CellState::Digit(_) => {
+                if auto_mode {
+                    self.current = self.auto_candidates;
+                } else {
+                    self.current = self.manual_candidates;
+                }
+            }
+            CellState::Candidates(_) => {
+                if !auto_mode {
+                    self.manual_candidates = CellState::Candidates(Set::NONE);
+                    self.current = self.manual_candidates;
+                }
+            }
+        }
     }
 }
 

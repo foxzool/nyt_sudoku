@@ -321,7 +321,7 @@ pub(crate) fn control_board(
                                         ..default()
                                     },
                                     ..default()
-                                }
+                                },
                             ));
                         });
                 });
@@ -340,18 +340,26 @@ fn on_click_auto_candidate(_trigger: Trigger<Pointer<Click>>, mut auto: ResMut<A
 
 fn update_auto_candidate_icon(
     auto: Res<AutoCandidateMode>,
-    mut check: Single<&mut Visibility, (With<AutoCandidateCheck>, Without<AutoCandidateNotCheck>)>,
-    mut not_check: Single<
+    mut check: Query<&mut Visibility, (With<AutoCandidateCheck>, Without<AutoCandidateNotCheck>)>,
+    mut not_check: Query<
         &mut Visibility,
         (Without<AutoCandidateCheck>, With<AutoCandidateNotCheck>),
     >,
 ) {
     if auto.0 {
-        **check = Visibility::Visible;
-        **not_check = Visibility::Hidden;
+        for mut visibility in check.iter_mut() {
+            *visibility = Visibility::Visible;
+        }
+        for mut visibility in not_check.iter_mut() {
+            *visibility = Visibility::Hidden;
+        }
     } else {
-        **check = Visibility::Hidden;
-        **not_check = Visibility::Visible;
+        for mut visibility in check.iter_mut() {
+            *visibility = Visibility::Hidden;
+        }
+        for mut visibility in not_check.iter_mut() {
+            *visibility = Visibility::Visible;
+        }
     }
 }
 

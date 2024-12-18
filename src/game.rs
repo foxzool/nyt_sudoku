@@ -34,12 +34,12 @@ pub struct SudokuManager {
 impl Plugin for SudokuPlugin {
     fn build(&self, app: &mut App) {
         control::plugin(app);
-        app
-            .init_resource::<AutoCandidateMode>()
+        board::plugin(app);
+        app.init_resource::<AutoCandidateMode>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(
                 Update,
-                (show_cell_value, keyboard_input, show_conflict)
+                (keyboard_input, show_conflict)
                     .run_if(in_state(GameState::Playing)),
             )
             .add_observer(on_select_cell)
@@ -419,13 +419,20 @@ pub struct CandidatesContainer;
 #[derive(Component, Debug)]
 pub struct CandidateCell {
     pub index: u8,
-    pub selected: bool,
+    /// 是否是自动选择的候选数字
+    pub auto_candidate_selected: bool,
+    /// 是否是手动选择的候选数字
+    pub manual_candidate_selected: bool,
 }
 
 #[derive(Component)]
 struct ControlLayout;
 
-fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosition)>) {
+fn init_cells(
+    mut commands: Commands,
+    cell_background: Query<(Entity, &CellPosition)>,
+    auto_mode: Res<AutoCandidateMode>,
+) {
     let sudoku = Sudoku::generate();
     info!("sudoku: {:?}", sudoku);
 
@@ -440,7 +447,7 @@ fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosit
 
         for (entity, cell_position) in cell_background.iter() {
             if cell_position.0 == index as u8 {
-                match &cell_value.current() {
+                match &cell_value.current(**auto_mode) {
                     // 如果一开始就是数字，那么这个格子是固定颜色
                     CellState::Digit(_) => {
                         commands
@@ -484,10 +491,11 @@ fn on_unselect_cell(
 fn on_update_cell(
     trigger: Trigger<UpdateCell>,
     mut q_cell: Query<(&mut CellValue, Option<&FixedCell>)>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
         if opt_fixed.is_none() {
-            cell_value.set(trigger.event().0);
+            cell_value.set(trigger.event().0, **auto_mode);
         }
     }
 }
@@ -495,136 +503,38 @@ fn on_update_cell(
 fn on_clean_cell(
     trigger: Trigger<CleanCell>,
     mut q_cell: Query<(&mut CellValue, Option<&FixedCell>)>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
         if opt_fixed.is_none() {
-            cell_value.rollback();
+            cell_value.rollback(**auto_mode);
         }
     }
 }
 
-fn show_cell_value(
-    cell: Query<(&CellValue, &Children, Option<&FixedCell>, &CellPosition), Changed<CellValue>>,
-    mut digit_cell: Query<
-        (&mut Text, &mut Visibility),
-        (With<DigitCell>, Without<CandidatesContainer>),
-    >,
-    mut candidates_container: Query<
-        (&mut Visibility, &Children),
-        (With<CandidatesContainer>, Without<DigitCell>),
-    >,
-    mut candidate_cell: Query<
-        (&mut TextColor, &mut CandidateCell),
-        (Without<DigitCell>, Without<CandidatesContainer>),
-    >,
-) {
-    for (cell_value, children, opt_fixed, cell_position) in cell.iter() {
-        for child in children.iter() {
-            if let Ok((_text, mut visibility)) = digit_cell.get_mut(*child) {
-                *visibility = Visibility::Hidden;
-            }
-            if let Ok((mut visibility, _children)) = candidates_container.get_mut(*child) {
-                *visibility = Visibility::Hidden;
-            }
-            match cell_value.current() {
-                CellState::Digit(digit) => {
-                    if let Ok((mut text, mut visibility)) = digit_cell.get_mut(*child) {
-                        debug!("cell {} change to digit {}", cell_position, digit.get());
-                        text.0 = digit.get().to_string();
-                        *visibility = Visibility::Visible;
-                    }
-                }
-                CellState::Candidates(candidates) => {
-                    if opt_fixed.is_some() {
-                        continue;
-                    }
 
-                    debug!(
-                        "cell {} change to candidates {:?}",
-                        cell_position,
-                        candidates.into_iter().collect::<Vec<_>>()
-                    );
 
-                    if let Ok((mut visibility, children)) = candidates_container.get_mut(*child) {
-                        *visibility = Visibility::Visible;
-
-                        for child in children {
-                            if let Ok((mut text_color, mut cell)) = candidate_cell.get_mut(*child) {
-                                if candidates.contains(Digit::new(cell.index).as_set()) {
-                                    cell.selected = true;
-                                    *text_color = TextColor(*LIGHT_GRAY);
-                                } else {
-                                    cell.selected = false;
-                                    *text_color = TextColor(Color::srgba_u8(18, 18, 18, 0));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn on_click_cell(
-    trigger: Trigger<Pointer<Click>>,
-    mut commands: Commands,
-    exist: Query<Entity, With<SelectedCell>>,
-) {
-    for entity in exist.iter() {
-        commands.entity(entity).remove::<SelectedCell>();
-    }
-
-    commands.entity(trigger.entity()).insert(SelectedCell);
-}
-
-fn candidate_cell_move(
-    trigger: Trigger<Pointer<Over>>,
-    mut cell: Query<(Entity, &mut TextColor, &CandidateCell)>,
-    parent_query: Query<&Parent>,
-    q_select: Query<&SelectedCell>,
-) {
-    let (entity, mut text_color, candidate_cell) = cell.get_mut(trigger.entity()).unwrap();
-    for ancestor in parent_query.iter_ancestors(entity) {
-        if q_select.get(ancestor).is_ok() && !candidate_cell.selected {
-            *text_color = TextColor(Color::srgba_u8(18, 18, 18, 200))
-        }
-    }
-}
-
-fn candidate_cell_out(
-    out: Trigger<Pointer<Out>>,
-    mut cell: Query<(Entity, &mut TextColor, &CandidateCell)>,
-    parent_query: Query<&Parent>,
-    q_select: Query<&SelectedCell>,
-) {
-    let (entity, mut text_color, candidate_cell) = cell.get_mut(out.entity()).unwrap();
-    for ancestor in parent_query.iter_ancestors(entity) {
-        if q_select.get(ancestor).is_ok() && !candidate_cell.selected {
-            *text_color = TextColor(Color::srgba_u8(18, 18, 18, 0))
-        }
-    }
-}
 
 fn candidate_cell_click(
     click: Trigger<Pointer<Click>>,
     mut cell: Query<&mut CandidateCell>,
     parent_query: Query<&Parent>,
     mut q_select: Query<&mut CellValue, With<SelectedCell>>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
     for ancestor in parent_query.iter_ancestors(click.entity()) {
         if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
-            if let CellState::Candidates(mut candidates) = cell_value.current() {
-                if candidate_cell.selected {
-                    candidate_cell.selected = false;
+            if let CellState::Candidates(mut candidates) = cell_value.current(**auto_mode) {
+                if candidate_cell.auto_candidate_selected {
+                    candidate_cell.auto_candidate_selected = false;
                     candidates.remove(Digit::new(candidate_cell.index).as_set());
                 } else {
-                    candidate_cell.selected = true;
+                    candidate_cell.auto_candidate_selected = true;
                     candidates.bitor_assign(Digit::new(candidate_cell.index).as_set());
                 }
 
-                cell_value.set(CellState::Candidates(candidates));
+                cell_value.set(CellState::Candidates(candidates), **auto_mode);
             }
         }
     }
@@ -634,13 +544,14 @@ fn check_solver(
     _trigger: Trigger<UpdateCell>,
     mut cell_query: Query<(&mut CellValue, &CellPosition)>,
     mut sudoku_manager: ResMut<SudokuManager>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     let mut list = [CellState::Candidates(Set::NONE); 81];
     for (cell_value, cell_position) in cell_query
         .iter()
         .sort_by::<&CellPosition>(|t1, t2| t1.0.cmp(&t2.0))
     {
-        list[cell_position.0 as usize] = cell_value.current().clone();
+        list[cell_position.0 as usize] = cell_value.current(**auto_mode).clone();
     }
     sudoku_manager.solver = StrategySolver::from_grid_state(list);
 
@@ -667,6 +578,7 @@ pub struct CheckConflict;
 fn kick_candidates(
     trigger: Trigger<NewValueChecker>,
     mut q_cell: Query<(&mut CellValue, &CellPosition)>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     let digit = Digit::new(trigger.event().digit);
     let kicker_position = trigger.event().position.clone();
@@ -676,9 +588,9 @@ fn kick_candidates(
             || kicker_position.col() == cell_position.col()
             || kicker_position.block() == cell_position.block()
         {
-            if let CellState::Candidates(mut candidates) = cell_value.current() {
+            if let CellState::Candidates(mut candidates) = cell_value.current(**auto_mode) {
                 candidates.remove(digit.as_set());
-                cell_value.set(CellState::Candidates(candidates));
+                cell_value.set(CellState::Candidates(candidates), **auto_mode);
             }
         }
     }
@@ -689,6 +601,7 @@ fn check_conflict(
     update_cell: Query<&CellPosition>,
     mut q_cell: Query<(Entity, &CellValue, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     if let CellState::Digit(digit) = trigger.event().0 {
         let check_entity = trigger.entity();
@@ -699,7 +612,7 @@ fn check_conflict(
                     || cell_position.col() == other_cell_position.col()
                     || cell_position.block() == other_cell_position.block()
                 {
-                    if let CellState::Digit(other_digit) = other_cell_value.current() {
+                    if let CellState::Digit(other_digit) = other_cell_value.current(**auto_mode) {
                         if digit == *other_digit && cell_position != other_cell_position {
                             conflict_list.push(other_entity);
                             for child in children {
@@ -743,9 +656,10 @@ fn remove_conflict(
     trigger: Trigger<CleanCell>,
     mut q_cell: Query<(&CellValue, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     let (cell_value, cell_position, children) = q_cell.get(trigger.entity()).unwrap();
-    if let CellState::Digit(digit) = cell_value.current() {
+    if let CellState::Digit(digit) = cell_value.current(**auto_mode) {
         for child in children {
             if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
                 conflict_count.clear();
@@ -757,7 +671,7 @@ fn remove_conflict(
                 || cell_position.col() == other_cell_position.col()
                 || cell_position.block() == other_cell_position.block()
             {
-                if let CellState::Digit(other_digit) = other_cell_value.current() {
+                if let CellState::Digit(other_digit) = other_cell_value.current(**auto_mode) {
                     if digit == other_digit && cell_position != other_cell_position {
                         for child in children {
                             if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {

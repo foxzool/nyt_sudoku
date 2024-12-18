@@ -2,24 +2,24 @@ use crate::color::*;
 use crate::game::board::play_board;
 use crate::game::cell_state::{CellValue, FixedCell};
 use crate::game::control::control_board;
+use crate::game::input::keyboard_input;
 use crate::game::position::CellPosition;
 use crate::GameState;
 use bevy::color::palettes::basic::RED;
 use bevy::input::keyboard::KeyboardInput;
-use bevy::input::ButtonState;
 use bevy::prelude::*;
+use bevy::utils::HashSet;
 use std::ops::BitOrAssign;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
 use sudoku::Sudoku;
-use crate::game::input::keyboard_input;
 
 mod board;
 mod cell_state;
 mod control;
-mod position;
 mod input;
+mod position;
 
 pub struct SudokuPlugin;
 
@@ -37,11 +37,13 @@ impl Plugin for SudokuPlugin {
         app.add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(
                 Update,
-                (update_cell, keyboard_input, show_conflict)
+                (show_cell_value, keyboard_input, show_conflict)
                     .run_if(in_state(GameState::Playing)),
             )
             .add_observer(on_select_cell)
             .add_observer(on_unselect_cell)
+            .add_observer(on_update_cell)
+            .add_observer(on_clean_cell)
             .add_observer(check_solver)
             .add_observer(check_conflict)
             .add_observer(remove_conflict)
@@ -400,28 +402,8 @@ pub struct CellGrid;
 pub struct DigitCell;
 
 /// 冲突红点
-#[derive(Component, Default)]
-pub struct ConflictCount(u8);
-
-impl ConflictCount {
-    pub fn add(&mut self) {
-        self.0 += 1;
-    }
-
-    pub fn minus(&mut self) {
-        if self.0 > 0 {
-            self.0 -= 1;
-        }
-    }
-
-    pub fn reset(&mut self) {
-        self.0 = 0;
-    }
-
-    pub fn is_conflict(&self) -> bool {
-        self.0 > 0
-    }
-}
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ConflictCount(HashSet<Entity>);
 
 /// 候选格子
 #[derive(Component)]
@@ -493,18 +475,30 @@ fn on_unselect_cell(
     }
 }
 
-fn update_cell(
-    mut commands: Commands,
-    cell: Query<
-        (
-            Entity,
-            &CellValue,
-            &Children,
-            Option<&FixedCell>,
-            &CellPosition,
-        ),
-        Changed<CellValue>,
-    >,
+fn on_update_cell(
+    trigger: Trigger<UpdateCell>,
+    mut q_cell: Query<(&mut CellValue, Option<&FixedCell>)>,
+) {
+    if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
+        if opt_fixed.is_none() {
+            cell_value.set(trigger.event().0);
+        }
+    }
+}
+
+fn on_clean_cell(
+    trigger: Trigger<CleanCell>,
+    mut q_cell: Query<(&mut CellValue, Option<&FixedCell>)>,
+) {
+    if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
+        if opt_fixed.is_none() {
+            cell_value.rollback();
+        }
+    }
+}
+
+fn show_cell_value(
+    cell: Query<(&CellValue, &Children, Option<&FixedCell>, &CellPosition), Changed<CellValue>>,
     mut digit_cell: Query<
         (&mut Text, &mut Visibility),
         (With<DigitCell>, Without<CandidatesContainer>),
@@ -518,7 +512,7 @@ fn update_cell(
         (Without<DigitCell>, Without<CandidatesContainer>),
     >,
 ) {
-    for (entity, cell_value, children, opt_fixed, cell_position) in cell.iter() {
+    for (cell_value, children, opt_fixed, cell_position) in cell.iter() {
         for child in children.iter() {
             if let Ok((_text, mut visibility)) = digit_cell.get_mut(*child) {
                 *visibility = Visibility::Hidden;
@@ -532,18 +526,6 @@ fn update_cell(
                         debug!("cell {} change to digit {}", cell_position, digit.get());
                         text.0 = digit.get().to_string();
                         *visibility = Visibility::Visible;
-                        commands.trigger(CheckSolver);
-                        commands.trigger_targets(
-                            CleanCell ,
-                            vec![entity],
-                        );
-                        commands.trigger_targets(
-                            NewValueChecker {
-                                digit: digit.get(),
-                                position: *cell_position,
-                            },
-                            vec![entity],
-                        );
                     }
                 }
                 CellState::Candidates(candidates) => {
@@ -642,11 +624,8 @@ fn candidate_cell_click(
     }
 }
 
-#[derive(Event)]
-struct CheckSolver;
-
 fn check_solver(
-    _trigger: Trigger<CheckSolver>,
+    _trigger: Trigger<UpdateCell>,
     mut cell_query: Query<(&mut CellValue, &CellPosition)>,
     mut sudoku_manager: ResMut<SudokuManager>,
 ) {
@@ -676,6 +655,9 @@ pub struct UpdateCell(pub CellState);
 #[derive(Event)]
 pub struct CleanCell;
 
+#[derive(Event)]
+pub struct CheckConflict;
+
 fn kick_candidates(
     trigger: Trigger<NewValueChecker>,
     mut q_cell: Query<(&mut CellValue, &CellPosition)>,
@@ -697,42 +679,43 @@ fn kick_candidates(
 }
 
 fn check_conflict(
-    trigger: Trigger<NewValueChecker>,
-    mut q_cell: Query<(&CellValue, &CellPosition, &Children)>,
+    trigger: Trigger<UpdateCell>,
+    update_cell: Query<&CellPosition>,
+    mut q_cell: Query<(Entity, &CellValue, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
 ) {
-    let digit = Digit::new(trigger.event().digit);
-    let cell_position = trigger.event().position.clone();
-
-    let mut conflict = false;
-    for (other_cell_value, other_cell_position, children) in q_cell.iter() {
-        if cell_position.row() == other_cell_position.row()
-            || cell_position.col() == other_cell_position.col()
-            || cell_position.block() == other_cell_position.block()
-        {
-            if let CellState::Digit(other_digit) = other_cell_value.current() {
-                if digit == *other_digit && cell_position != *other_cell_position {
-                    conflict = true;
-                    for child in children {
-                        if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                            println!(
-                                "other_cell_position {} conflict count: {}",
-                                other_cell_position, conflict_count.0
-                            );
-                            conflict_count.add();
+    if let CellState::Digit(digit) = trigger.event().0 {
+        let check_entity = trigger.entity();
+        if let Ok(cell_position) = update_cell.get(check_entity) {
+            let mut conflict_list = vec![];
+            for (other_entity, other_cell_value, other_cell_position, children) in q_cell.iter() {
+                if cell_position.row() == other_cell_position.row()
+                    || cell_position.col() == other_cell_position.col()
+                    || cell_position.block() == other_cell_position.block()
+                {
+                    if let CellState::Digit(other_digit) = other_cell_value.current() {
+                        if digit == *other_digit && cell_position != other_cell_position {
+                            conflict_list.push(other_entity);
+                            for child in children {
+                                if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
+                                    conflict_count.insert(check_entity);
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
-    }
 
-    if conflict {
-        for (_other_cell_value, other_cell_position, children) in q_cell.iter() {
-            if *other_cell_position == cell_position {
-                for child in children {
-                    if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                        conflict_count.add();
+            if !conflict_list.is_empty() {
+                for (entity, _other_cell_value, other_cell_position, children) in q_cell.iter() {
+                    if other_cell_position == cell_position {
+                        for child in children {
+                            if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
+                                conflict_count.insert(entity);
+                                conflict_count.extend(conflict_list);
+                                return;
+                            }
+                        }
                     }
                 }
             }
@@ -742,10 +725,10 @@ fn check_conflict(
 
 fn show_conflict(mut q_conflict: Query<(&mut Visibility, &ConflictCount), Changed<ConflictCount>>) {
     for (mut visibility, conflict_count) in q_conflict.iter_mut() {
-        if conflict_count.is_conflict() {
-            *visibility = Visibility::Visible;
-        } else {
+        if conflict_count.is_empty() {
             *visibility = Visibility::Hidden;
+        } else {
+            *visibility = Visibility::Visible;
         }
     }
 }
@@ -759,7 +742,7 @@ fn remove_conflict(
     if let CellState::Digit(digit) = cell_value.current() {
         for child in children {
             if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                conflict_count.reset();
+                conflict_count.clear();
             }
         }
 
@@ -772,10 +755,11 @@ fn remove_conflict(
                     if digit == other_digit && cell_position != other_cell_position {
                         for child in children {
                             if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                                conflict_count.minus();
+                                conflict_count.remove(&trigger.entity());
                                 println!(
                                     "clean {} conflict count: {}",
-                                    other_cell_position, conflict_count.0
+                                    other_cell_position,
+                                    conflict_count.0.len()
                                 );
                             }
                         }
@@ -783,8 +767,5 @@ fn remove_conflict(
                 }
             }
         }
-
     }
-
-
 }

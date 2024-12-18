@@ -114,7 +114,7 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                     height: Val::Px(14.0),
                                                     ..default()
                                                 },
-                                                    ConflictCount(0)
+                                                    ConflictCount::default()
                                                 )
 
                                                 );

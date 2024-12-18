@@ -1,12 +1,18 @@
-use crate::color::{DARK_BLACK, DARK_GRAY, LIGHT_GRAY, WHITE_COLOR};
+use crate::color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR};
 use bevy::prelude::*;
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<SelectedTab>().add_systems(
         Update,
-        update_control_tab.run_if(resource_changed::<SelectedTab>),
+        (update_control_tab, show_number).run_if(resource_changed::<SelectedTab>),
     );
 }
+
+#[derive(Component)]
+pub struct ControlDigit;
+
+#[derive(Component)]
+pub struct ControlCandidate;
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 enum ControlTab {
@@ -21,7 +27,11 @@ struct ChangeTab(ControlTab);
 #[derive(Resource, Debug, Deref, DerefMut, Default)]
 struct SelectedTab(ControlTab);
 
-pub(crate) fn control_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
+pub(crate) fn control_board(
+    asset_server: &Res<AssetServer>,
+    font: &Handle<Font>,
+    builder: &mut ChildBuilder,
+) {
     builder
         .spawn((
             Node {
@@ -40,11 +50,13 @@ pub(crate) fn control_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
         .with_children(|builder| {
             // keyboard
             builder
-                .spawn(Node {
-                    width: Val::Px(240.0),
-
-                    ..default()
-                })
+                .spawn((
+                    Name::new("keyboard_split"),
+                    Node {
+                        width: Val::Px(240.0),
+                        ..default()
+                    },
+                ))
                 .with_children(|builder| {
                     // 切换按钮
                     builder
@@ -52,7 +64,7 @@ pub(crate) fn control_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                             Button,
                             Node {
                                 width: Val::Px(140.0),
-                                height: Val::Px(50.0),
+                                height: Val::Px(38.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 border: UiRect::all(Val::Px(0.0)),
@@ -85,7 +97,7 @@ pub(crate) fn control_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                             Button,
                             Node {
                                 width: Val::Px(140.0),
-                                height: Val::Px(50.0),
+                                height: Val::Px(38.0),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 border: UiRect::all(Val::Px(1.0)),
@@ -113,13 +125,172 @@ pub(crate) fn control_board(font: &Handle<Font>, builder: &mut ChildBuilder) {
                             },
                         );
                 });
+
+            builder
+                .spawn((
+                    Name::new("keyboard_container"),
+                    Node {
+                        width: Val::Percent(100.0),
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        flex_wrap: FlexWrap::Wrap,
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_content: AlignContent::SpaceBetween,
+                        ..default()
+                    },
+                ))
+                .with_children(|builder| {
+                    for i in 1..=9 {
+                        builder
+                            .spawn((
+                                Node {
+                                    width: Val::Px(70.0),
+                                    height: Val::Px(70.0),
+                                    border: UiRect::all(Val::Px(1.0)),
+                                    margin: UiRect {
+                                        top: Val::Px(14.0),
+                                        ..default()
+                                    },
+                                    align_items: AlignItems::Center,
+                                    justify_items: JustifyItems::Center,
+                                    align_content: AlignContent::Center,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                },
+                                BorderRadius::all(Val::Px(3.0)),
+                                BackgroundColor(*EXTRA_LIGHT_GRAY),
+                                BorderColor(*GRAY),
+                            ))
+                            .with_children(|builder| {
+                                // 数字格子
+                                builder.spawn((
+                                    Text::new(i.to_string()),
+                                    TextFont {
+                                        font: asset_server.load("fonts/franklin-normal-700.ttf"),
+                                        font_size: 32.0,
+                                        ..default()
+                                    },
+                                    TextColor(*DARK_BLACK),
+                                    Visibility::Visible,
+                                    ControlDigit,
+                                ));
+
+                                // 候选格子容器
+                                builder
+                                    .spawn((
+                                        Visibility::Hidden,
+                                        ControlCandidate,
+                                        Node {
+                                            height: Val::Percent(100.0),
+                                            display: Display::Grid,
+                                            aspect_ratio: Some(1.0),
+                                            position_type: PositionType::Absolute,
+                                            grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
+                                            grid_template_rows: RepeatedGridTrack::flex(3, 1.0),
+                                            ..default()
+                                        },
+                                    ))
+                                    .with_children(|builder| {
+                                        // 9个候选数字格子
+                                        for k in 1..=9u8 {
+                                            let visibility = if k == i {
+                                                Visibility::Inherited
+                                            } else {
+                                                Visibility::Hidden
+                                            };
+                                            builder.spawn((
+                                                visibility,
+                                                Text::new(k.to_string()),
+                                                TextFont {
+                                                    font: asset_server
+                                                        .load("fonts/franklin-normal-700.ttf"),
+                                                    font_size: 16.0,
+                                                    ..default()
+                                                },
+                                                TextColor(*DARK_BLACK),
+                                                TextLayout::new_with_justify(JustifyText::Center),
+                                                Node {
+                                                    align_items: AlignItems::Center,
+                                                    justify_items: JustifyItems::Center,
+                                                    align_content: AlignContent::Center,
+                                                    justify_content: JustifyContent::Center,
+                                                    margin: UiRect {
+                                                        top: Val::Px(4.),
+                                                        ..default()
+                                                    },
+                                                    ..default()
+                                                },
+                                            ));
+                                        }
+                                    });
+                            });
+                    }
+
+                    // 删除按钮
+                    builder
+                        .spawn((
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Px(48.0),
+                                border: UiRect::all(Val::Px(1.0)),
+                                margin: UiRect {
+                                    top: Val::Px(14.0),
+                                    ..default()
+                                },
+                                align_items: AlignItems::Center,
+                                justify_items: JustifyItems::Center,
+                                align_content: AlignContent::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(3.0)),
+                            BackgroundColor(*EXTRA_LIGHT_GRAY),
+                            BorderColor(*GRAY),
+                        ))
+                        .with_children(|builder| {
+                            builder.spawn((
+                                ImageNode {
+                                    image: asset_server.load("textures/close.png"),
+                                    ..default()
+                                },
+                                Node {
+                                    height: Val::Px(18.0),
+                                    width: Val::Px(18.0),
+                                    ..default()
+                                },
+                            ));
+                        });
+                });
         });
+}
+
+fn show_number(
+    selected_tab: Res<SelectedTab>,
+    mut normal_cell: Query<&mut Visibility, (With<ControlDigit>, Without<ControlCandidate>)>,
+    mut candidate: Query<&mut Visibility, (With<ControlCandidate>, Without<ControlDigit>)>,
+) {
+    match selected_tab.0 {
+        ControlTab::Normal => {
+            for mut visibility in normal_cell.iter_mut() {
+                *visibility = Visibility::Visible;
+            }
+            for mut visibility in candidate.iter_mut() {
+                *visibility = Visibility::Hidden;
+            }
+        }
+        ControlTab::Candidate => {
+            for mut visibility in normal_cell.iter_mut() {
+                *visibility = Visibility::Hidden;
+            }
+            for mut visibility in candidate.iter_mut() {
+                *visibility = Visibility::Visible;
+            }
+        }
+    }
 }
 
 fn update_control_tab(
     selected_tab: Res<SelectedTab>,
-    // mut normal_tab: Single<(&mut Node), (With<NormalTab>, Without<CandidateTab>)>,
-    // mut candidate_tab: Single<(&mut Node), (Without<NormalTab>, With<CandidateTab>)>,
     mut tab_query: Query<(
         &ChangeTab,
         &mut Node,
@@ -129,9 +300,6 @@ fn update_control_tab(
     )>,
     mut text_color: Query<&mut TextColor>,
 ) {
-    // let (mut normal_node) = normal_tab.into_inner();
-    // let (mut candidate_node) = candidate_tab.into_inner();
-
     for (change_tab, mut node, mut bg, mut border_color, children) in tab_query.iter_mut() {
         if change_tab.0 == selected_tab.0 {
             bg.0 = *DARK_BLACK;

@@ -84,52 +84,18 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                     BackgroundColor(WHITE_COLOR),
                 ))
                 .with_children(|builder| {
-                    builder
-                        .spawn((
-                            Name::new("tool-bar"),
-                            Node {
-                                border: UiRect::vertical(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BorderColor(*EXTRA_LIGHT_GRAY),
-                            BackgroundColor(WHITE_COLOR),
-                        ))
-                        .with_children(|builder| {
-                            builder
-                                .spawn((
-                                    Name::new("toolbar-row"),
-                                    Node {
-                                        width: Val::Percent(100.0),
-                                        max_width: Val::Px(1280.0),
-                                        margin: UiRect::axes(Val::Auto, Val::Px(12.0)),
-                                        padding: UiRect::axes(Val::Px(24.0), Val::Px(0.0)),
-                                        display: Display::Flex,
-                                        flex_wrap: FlexWrap::NoWrap,
-                                        justify_content: JustifyContent::SpaceBetween,
-                                        ..default()
-                                    },
-                                    BorderColor(*BLACK),
-                                ))
-                                .with_children(|builder| {
-                                    // left bar
-                                    left_bar(&asset_server, &font5, builder);
-                                    // center bar
-                                    center_bar(&asset_server, &font5, builder);
-                                    // right bar
-                                    right_bar(&asset_server, builder);
-                                });
-                        });
+                    // 工具栏
+                    toolbars(&asset_server, &font5, builder);
 
+                    // 游戏容器
                     builder
                         .spawn((
                             Name::new("game-root"),
                             Node {
                                 height: Val::Percent(100.0),
                                 padding: UiRect::all(Val::Px(13.0)),
-                                // margin: UiRect::vertical(Val::Px(20.0)),
                                 ..default()
                             },
-                            // BackgroundColor(RED.into()),
                         ))
                         .with_children(|builder| {
                             builder
@@ -145,11 +111,51 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     play_board(&asset_server, builder);
 
                                     // 右侧边栏
-                                    control_board(&font5, builder);
+                                    control_board(&asset_server, &font5, builder);
                                 });
                         });
                 });
         });
+}
+
+fn toolbars(asset_server: &Res<AssetServer>, font5: &Handle<Font>, builder: &mut ChildBuilder) {
+    builder
+        .spawn((
+            Name::new("tool-bar"),
+            Node {
+                border: UiRect::vertical(Val::Px(1.0)),
+                ..default()
+            },
+            BorderColor(*EXTRA_LIGHT_GRAY),
+            BackgroundColor(WHITE_COLOR),
+        ))
+        .with_children(|builder| {
+            builder
+                .spawn((
+                    Name::new("toolbar-row"),
+                    Node {
+                        width: Val::Percent(100.0),
+                        max_width: Val::Px(1280.0),
+                        margin: UiRect::axes(Val::Auto, Val::Px(12.0)),
+                        padding: UiRect::axes(Val::Px(24.0), Val::Px(0.0)),
+                        display: Display::Flex,
+                        flex_wrap: FlexWrap::NoWrap,
+                        justify_content: JustifyContent::SpaceBetween,
+                        ..default()
+                    },
+                    BorderColor(*BLACK),
+                ))
+                .with_children(|builder| {
+                    // left bar
+                    left_bar(&asset_server, &font5, builder);
+                    // center bar
+                    center_bar(&asset_server, &font5, builder);
+                    // right bar
+                    right_bar(&asset_server, builder);
+                });
+        });
+
+
 }
 
 fn right_bar(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {

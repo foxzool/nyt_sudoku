@@ -13,8 +13,7 @@ pub const DARK_BLACK: LazyLock<Color> =
 pub const MED_BLACK: LazyLock<Color> =
     LazyLock::new(|| Color::Srgba(Srgba::hex("1b1b1b").unwrap()));
 // #2a2a2a
-pub const BLACK: LazyLock<Color> =
-    LazyLock::new(|| Color::Srgba(Srgba::hex("2a2a2a").unwrap()));
+pub const BLACK: LazyLock<Color> = LazyLock::new(|| Color::Srgba(Srgba::hex("2a2a2a").unwrap()));
 // #363636
 pub const DARKEST_GRAY: LazyLock<Color> =
     LazyLock::new(|| Color::Srgba(Srgba::hex("363636").unwrap()));
@@ -28,11 +27,9 @@ pub const DARKER_GRAY: LazyLock<Color> =
 pub const DARK_GRAY: LazyLock<Color> =
     LazyLock::new(|| Color::Srgba(Srgba::hex("727272").unwrap()));
 // #8b8b8b
-pub const GRAY2: LazyLock<Color> =
-    LazyLock::new(|| Color::Srgba(Srgba::hex("8b8b8b").unwrap()));
+pub const GRAY2: LazyLock<Color> = LazyLock::new(|| Color::Srgba(Srgba::hex("8b8b8b").unwrap()));
 // #979797
-pub const GRAY: LazyLock<Color> =
-    LazyLock::new(|| Color::Srgba(Srgba::hex("979797").unwrap()));
+pub const GRAY: LazyLock<Color> = LazyLock::new(|| Color::Srgba(Srgba::hex("979797").unwrap()));
 // #a3a3a3
 pub const LIGHT_GRAY: LazyLock<Color> =
     LazyLock::new(|| Color::Srgba(Srgba::hex("a3a3a3").unwrap()));
@@ -49,8 +46,7 @@ pub const LIGHTEST_GRAY: LazyLock<Color> =
 pub const COOL_GRAY: LazyLock<Color> =
     LazyLock::new(|| Color::Srgba(Srgba::hex("f8f8f8").unwrap()));
 // #12121260
-pub const SCRIM: LazyLock<Color> =
-    LazyLock::new(|| Color::Srgba(Srgba::hex("12121260").unwrap()));
+pub const SCRIM: LazyLock<Color> = LazyLock::new(|| Color::Srgba(Srgba::hex("12121260").unwrap()));
 // #ffffff60
 pub const LIGHT_SCRIM: LazyLock<Color> =
     LazyLock::new(|| Color::Srgba(Srgba::hex("ffffff60").unwrap()));

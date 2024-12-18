@@ -2,8 +2,9 @@ use crate::color::*;
 use crate::game::position::CellPosition;
 use crate::game::{
     candidate_cell_click, candidate_cell_move, candidate_cell_out, on_click_cell, CandidateCell,
-    CandidatesContainer, CellGrid, DigitCell,
+    CandidatesContainer, CellGrid, ConflictCount, DigitCell,
 };
+use bevy::color::palettes::basic::RED;
 use bevy::prelude::*;
 
 pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
@@ -97,6 +98,26 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                     },
                                                     DigitCell,
                                                 ));
+
+                                                builder.spawn((
+                                                    ImageNode {
+                                                        image: asset_server.load("textures/circle.png"),
+                                                        color: Color::srgb_u8(255, 75, 86),
+                                                        ..default()
+                                                    },
+                                                    Visibility::Hidden,
+                                                    Node {
+                                                    position_type: PositionType::Absolute,
+                                                    right: Val::Px(7.0),
+                                                    bottom: Val::Px(7.0),
+                                                    width: Val::Px(14.0),
+                                                    height: Val::Px(14.0),
+                                                    ..default()
+                                                },
+                                                    ConflictCount(0)
+                                                )
+
+                                                );
 
                                                 // 候选格子容器
                                                 builder

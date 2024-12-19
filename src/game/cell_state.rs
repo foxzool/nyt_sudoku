@@ -24,7 +24,7 @@ impl CellValueBundle {
                 DigitValueCell(None),
                 AutoCandidates(digit_set),
                 ManualCandidates(Set::NONE),
-                CellMode::AutoCandidates,
+                CellMode::ManualCandidates,
             ),
         };
 

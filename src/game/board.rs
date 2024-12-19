@@ -1,16 +1,21 @@
 use crate::color::*;
 use crate::game::cell_state::{CellMode, CellValue, DigitValueCell, FixedCell, ManualCandidates};
 use crate::game::position::CellPosition;
-use crate::game::{candidate_cell_click, AutoCandidateCellMarker, AutoCandidateMode, CandidateCell, CandidatesContainer, CellGrid, ConflictCount, DigitCellMarker, ManualCandidateCellMarker, SelectedCell};
+use crate::game::{
+    AutoCandidateCellMarker, AutoCandidateMode, CandidateCell, CandidatesContainer, CellGrid,
+    ConflictCount, DigitCellMarker, ManualCandidateCellMarker, SelectedCell,
+};
 use crate::GameState;
 use bevy::prelude::*;
 use bevy::utils::info;
+use std::ops::{BitOrAssign, BitXorAssign};
 use sudoku::board::{CellState, Digit};
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_systems(
         Update,
-        (show_digit_cell, show_manual_candidates).run_if(in_state(GameState::Playing)),
+        (show_digit_cell, show_manual_candidates, show_preview_number)
+            .run_if(in_state(GameState::Playing)),
     );
 }
 
@@ -115,16 +120,15 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                     },
                                                     Visibility::Hidden,
                                                     Node {
-                                                    position_type: PositionType::Absolute,
-                                                    right: Val::Px(7.0),
-                                                    bottom: Val::Px(7.0),
-                                                    width: Val::Px(14.0),
-                                                    height: Val::Px(14.0),
-                                                    ..default()
-                                                },
+                                                        position_type: PositionType::Absolute,
+                                                        right: Val::Px(7.0),
+                                                        bottom: Val::Px(7.0),
+                                                        width: Val::Px(14.0),
+                                                        height: Val::Px(14.0),
+                                                        ..default()
+                                                    },
                                                     ConflictCount::default()
                                                 )
-
                                                 );
 
                                                 // 候选格子容器
@@ -158,7 +162,7 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                         font_size: 16.0,
                                                                         ..default()
                                                                     },
-                                                                    TextColor(*DARK_BLACK),
+                                                                    TextColor(TRANSPARENT),
                                                                     TextLayout::new_with_justify(
                                                                         JustifyText::Center,
                                                                     ),
@@ -176,13 +180,16 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                         },
                                                                         ..default()
                                                                     },
-                                                                    Visibility::Hidden,
+                                                                    // Visibility::Hidden,
                                                                     // BackgroundColor(Color::WHITE),
-                                                                    AutoCandidateCellMarker(i),
+                                                                    AutoCandidateCellMarker {
+                                                                        index: i,
+                                                                        selected: false,
+                                                                    },
                                                                 ))
-                                                                .observe(candidate_cell_move)
+                                                                .observe(manual_candidate_cell_move)
                                                                 .observe(candidate_cell_out)
-                                                                .observe(candidate_cell_click);
+                                                                .observe(manual_candidate_cell_click);
                                                         }
 
                                                         for i in 1..=9u8 {
@@ -194,7 +201,7 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                         font_size: 16.0,
                                                                         ..default()
                                                                     },
-                                                                    TextColor(*DARK_BLACK),
+                                                                    TextColor(TRANSPARENT),
                                                                     TextLayout::new_with_justify(
                                                                         JustifyText::Center,
                                                                     ),
@@ -212,13 +219,16 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                         },
                                                                         ..default()
                                                                     },
-                                                                    Visibility::Hidden,
+                                                                    // Visibility::Hidden,
                                                                     // BackgroundColor(Color::WHITE),
-                                                                    AutoCandidateCellMarker(i),
+                                                                    ManualCandidateCellMarker  {
+                                                                        index: i,
+                                                                        selected: false,
+                                                                    },
                                                                 ))
-                                                                .observe(candidate_cell_move)
+                                                                .observe(manual_candidate_cell_move)
                                                                 .observe(candidate_cell_out)
-                                                                .observe(candidate_cell_click);
+                                                                .observe(manual_candidate_cell_click);
                                                         }
                                                     });
                                             });
@@ -253,19 +263,6 @@ impl PreviewCandidate {
             timer: Timer::from_seconds(0.5, TimerMode::Once),
         }
     }
-}
-
-fn candidate_cell_move(
-    trigger: Trigger<Pointer<Over>>,
-    // cell: Query<(Entity, &CandidateCell)>,
-    // parent_query: Query<&Parent>,
-    // q_select: Query<&SelectedCell>,
-    // auto_mode: Res<AutoCandidateMode>,
-    mut commands: Commands,
-) {
-    commands
-        .entity(trigger.entity())
-        .insert(PreviewCandidate::hold());
 }
 
 fn candidate_cell_out(
@@ -318,39 +315,54 @@ fn show_digit_cell(
                 }
             }
         }
-
     }
 }
 
 fn show_manual_candidates(
     q_cell: Query<(Entity, &ManualCandidates, &CellMode)>,
     children: Query<&Children>,
-    mut candidate_cell: Query<
-        (
-            &mut TextColor,
-            &mut CandidateCell,
-        ),
-        With<ManualCandidateCellMarker>,
-    >,
-
-
+    mut candidate_cell: Query<(&mut TextColor, &mut ManualCandidateCellMarker)>,
 ) {
-
     for (entity, manual_candidates, cell_mode) in q_cell.iter() {
         for child in children.iter_descendants(entity) {
-            if let Ok((mut text_color, mut cell)) = candidate_cell.get_mut(child) {
+            if let Ok((mut text_color, mut cell_marker)) = candidate_cell.get_mut(child) {
                 if let CellMode::ManualCandidates = cell_mode {
-                    if manual_candidates.0.contains(Digit::new(cell.index).as_set()) {
-                        *text_color = TextColor(*GRAY);
-                    } else {
-                        *text_color = TextColor(*LIGHTER_GRAY);
+                    if manual_candidates
+                        .0
+                        .contains(Digit::new(cell_marker.index).as_set())
+                        && cell_marker.selected
+                    {
+                        *text_color = TextColor(*GRAY2);
                     }
                 } else {
                     *text_color = TextColor(TRANSPARENT);
                 }
             }
         }
+    }
+}
 
+fn show_preview_number(
+    mut candidate_cell: Query<(Entity, &mut TextColor, &mut PreviewCandidate)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (entity, mut text_color, mut preview) in candidate_cell.iter_mut() {
+
+        if preview.hold {
+            *text_color = TextColor(*GRAY);
+            continue;
+        }
+        *text_color = TextColor(*LIGHTER_GRAY);
+
+        preview.timer.tick(time.delta());
+        let alpha = 1.5 - preview.timer.elapsed_secs();
+        text_color.0.set_alpha(alpha);
+
+        if preview.timer.just_finished() {
+            commands.entity(entity).remove::<PreviewCandidate>();
+            *text_color = TextColor(TRANSPARENT)
+        }
     }
 }
 
@@ -449,4 +461,47 @@ fn update_cell_number(
             }
         }
     }
+}
+
+fn manual_candidate_cell_click(
+    click: Trigger<Pointer<Click>>,
+    mut cell: Query<&mut ManualCandidateCellMarker>,
+    parent_query: Query<&Parent>,
+    mut q_select: Query<&mut ManualCandidates, With<SelectedCell>>,
+    mut commands: Commands,
+) {
+    let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
+    candidate_cell.selected = !candidate_cell.selected;
+    for ancestor in parent_query.iter_ancestors(click.entity()) {
+        if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
+            let mut old_set = cell_value.0;
+            old_set.bitor_assign(Digit::new(candidate_cell.index).as_set());
+
+            cell_value.0 = old_set;
+
+            commands.entity(click.entity()).remove::<PreviewCandidate>();
+        }
+    }
+}
+
+fn manual_candidate_cell_move(
+    trigger: Trigger<Pointer<Over>>,
+    mut cell: Query<&ManualCandidateCellMarker>,
+    parent_query: Query<&Parent>,
+    mut q_select: Query<&mut ManualCandidates, With<SelectedCell>>,
+    mut commands: Commands,
+) {
+    for ancestor in parent_query.iter_ancestors(trigger.entity()) {
+        if let Ok(_cell_value) = q_select.get(ancestor) {
+            if let Ok(manual_marker) = cell.get(trigger.entity()) {
+                println!("manual candidate cell move {:?}", manual_marker);
+                if !manual_marker.selected {
+                    commands
+                        .entity(trigger.entity())
+                        .insert(PreviewCandidate::hold());
+                }
+            }
+        }
+    }
+
 }

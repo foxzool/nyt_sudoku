@@ -409,12 +409,18 @@ pub struct CellGrid;
 pub struct DigitCellMarker;
 
 /// 自动选择的候选数字
-#[derive(Component)]
-pub struct AutoCandidateCellMarker(pub u8);
+#[derive(Component, Debug)]
+pub struct AutoCandidateCellMarker {
+    pub index: u8,
+    pub selected: bool
+}
 
 /// 手动选择的候选数字
-#[derive(Component)]
-pub struct ManualCandidateCellMarker(pub u8);
+#[derive(Component, Debug)]
+pub struct ManualCandidateCellMarker {
+    pub index: u8,
+    pub selected: bool
+}
 
 /// 冲突红点
 #[derive(Component, Default, Deref, DerefMut)]
@@ -549,45 +555,6 @@ fn on_clean_cell(
             }
             CellMode::AutoCandidates => {}
             CellMode::ManualCandidates => manual_candidates.0 = Set::NONE,
-        }
-    }
-}
-
-fn candidate_cell_click(
-    click: Trigger<Pointer<Click>>,
-    mut cell: Query<&mut CandidateCell>,
-    parent_query: Query<&Parent>,
-    mut q_select: Query<&mut CellValue, With<SelectedCell>>,
-    auto_mode: Res<AutoCandidateMode>,
-) {
-    let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
-    for ancestor in parent_query.iter_ancestors(click.entity()) {
-        if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
-            if let CellState::Candidates(mut candidates) = cell_value.current(**auto_mode) {
-                match (
-                    candidate_cell.auto_candidate_selected,
-                    candidate_cell.manual_candidate_selected,
-                ) {
-                    (true, false) => {
-                        candidate_cell.auto_candidate_selected = false;
-                        candidates.remove(Digit::new(candidate_cell.index).as_set());
-                    }
-                    (false, true) => {
-                        candidate_cell.manual_candidate_selected = false;
-                        candidates.remove(Digit::new(candidate_cell.index).as_set());
-                    }
-                    (false, false) => {
-                        candidate_cell.manual_candidate_selected = true;
-                        candidates.bitor_assign(Digit::new(candidate_cell.index).as_set());
-                    }
-                    (true, true) => {
-                        candidate_cell.auto_candidate_selected = false;
-                        candidate_cell.manual_candidate_selected = false;
-                        candidates.remove(Digit::new(candidate_cell.index).as_set());
-                    }
-                }
-                cell_value.set(CellState::Candidates(candidates), **auto_mode);
-            }
         }
     }
 }

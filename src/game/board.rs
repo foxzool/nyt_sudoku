@@ -330,9 +330,12 @@ fn show_manual_candidates(
                     if manual_candidates
                         .0
                         .contains(Digit::new(cell_marker.index).as_set())
-                        && cell_marker.selected
                     {
+                        cell_marker.selected = true;
                         *text_color = TextColor(*GRAY2);
+                    } else {
+                        cell_marker.selected = false;
+                        *text_color = TextColor(TRANSPARENT);
                     }
                 } else {
                     *text_color = TextColor(TRANSPARENT);
@@ -348,7 +351,6 @@ fn show_preview_number(
     mut commands: Commands,
 ) {
     for (entity, mut text_color, mut preview) in candidate_cell.iter_mut() {
-
         if preview.hold {
             *text_color = TextColor(*GRAY);
             continue;
@@ -474,10 +476,7 @@ fn manual_candidate_cell_click(
     candidate_cell.selected = !candidate_cell.selected;
     for ancestor in parent_query.iter_ancestors(click.entity()) {
         if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
-            let mut old_set = cell_value.0;
-            old_set.bitor_assign(Digit::new(candidate_cell.index).as_set());
-
-            cell_value.0 = old_set;
+            cell_value.insert(Digit::new(candidate_cell.index));
 
             commands.entity(click.entity()).remove::<PreviewCandidate>();
         }
@@ -494,7 +493,6 @@ fn manual_candidate_cell_move(
     for ancestor in parent_query.iter_ancestors(trigger.entity()) {
         if let Ok(_cell_value) = q_select.get(ancestor) {
             if let Ok(manual_marker) = cell.get(trigger.entity()) {
-                println!("manual candidate cell move {:?}", manual_marker);
                 if !manual_marker.selected {
                     commands
                         .entity(trigger.entity())
@@ -503,5 +501,4 @@ fn manual_candidate_cell_move(
             }
         }
     }
-
 }

@@ -1,7 +1,8 @@
 use crate::color::*;
 use crate::game::board::play_board;
 use crate::game::cell_state::{
-    CellMode, CellValue, CellValueBundle, CellValueNew, DigitValueCell, FixedCell, ManualCandidates,
+    AutoCandidates, CellMode, CellValue, CellValueBundle, CellValueNew, DigitValueCell, FixedCell,
+    ManualCandidates,
 };
 use crate::game::control::control_board;
 use crate::game::input::keyboard_input;
@@ -412,14 +413,14 @@ pub struct DigitCellMarker;
 #[derive(Component, Debug)]
 pub struct AutoCandidateCellMarker {
     pub index: u8,
-    pub selected: bool
+    pub selected: bool,
 }
 
 /// 手动选择的候选数字
 #[derive(Component, Debug)]
 pub struct ManualCandidateCellMarker {
     pub index: u8,
-    pub selected: bool
+    pub selected: bool,
 }
 
 /// 冲突红点
@@ -500,31 +501,61 @@ fn on_unselect_cell(
 
 fn on_new_digit(
     trigger: Trigger<NewDigit>,
-    mut q_cell: Query<(&mut DigitValueCell, &mut CellMode, Option<&FixedCell>)>,
+    mut q_cell: Query<(&mut DigitValueCell, &mut CellMode), Without<FixedCell>>,
     mut commands: Commands,
 ) {
-    if let Ok((mut cell_value, mut cell_mode, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
-        if opt_fixed.is_none() {
-            *cell_mode = CellMode::Digit;
-            let new_digit = trigger.event().0;
+    if let Ok((mut cell_value, mut cell_mode)) = q_cell.get_mut(trigger.entity()) {
+        *cell_mode = CellMode::Digit;
+        let new_digit = trigger.event().0;
 
-            if let Some(old_digit) = cell_value.0 {
-                commands.trigger_targets(RemoveDigit(old_digit), vec![trigger.entity()]);
-            }
-
-            cell_value.0 = Some(new_digit);
+        if let Some(old_digit) = cell_value.0 {
+            commands.trigger_targets(RemoveDigit(old_digit), vec![trigger.entity()]);
         }
+
+        cell_value.0 = Some(new_digit);
     }
 }
 
 fn on_new_candidate(
     trigger: Trigger<NewCandidate>,
-    mut q_cell: Query<(&mut CellValue, Option<&FixedCell>)>,
+    mut q_cell: Query<
+        (
+            &mut DigitValueCell,
+            &mut ManualCandidates,
+            &mut AutoCandidates,
+            &mut CellMode,
+        ),
+        Without<FixedCell>,
+    >,
     auto_mode: Res<AutoCandidateMode>,
+    mut commands: Commands,
 ) {
-    if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
-        if opt_fixed.is_none() {
-            cell_value.insert(CellState::Candidates(trigger.event().0), **auto_mode);
+    if let Ok((mut digit_value, mut manual_candidates, mut auto_candidates, mut cell_mode)) =
+        q_cell.get_mut(trigger.entity())
+    {
+        let new_candidate = trigger.event().0;
+        match cell_mode.as_ref() {
+            CellMode::Digit => {
+                if let Some(digit) = digit_value.0 {
+                    commands.trigger_targets(RemoveDigit(digit), vec![trigger.entity()]);
+                }
+                digit_value.0 = None;
+                if **auto_mode {
+                    *cell_mode = CellMode::AutoCandidates;
+                    auto_candidates.insert(new_candidate);
+                } else {
+                    *cell_mode = CellMode::ManualCandidates;
+                    manual_candidates.insert(new_candidate);
+                }
+            }
+            CellMode::AutoCandidates => {
+                auto_candidates.insert(new_candidate);
+            }
+            CellMode::ManualCandidates => {
+                println!("manual_candidates: {:?} {:?}", manual_candidates.0, new_candidate);
+                manual_candidates.insert(new_candidate);
+                println!("manual_candidates: {:?}", manual_candidates.0);
+            }
         }
     }
 }
@@ -583,11 +614,11 @@ fn check_solver(
 pub struct CleanCell;
 
 #[derive(Event)]
-pub struct NewCandidate(pub Set<Digit>);
+pub struct NewCandidate(pub Digit);
 
 impl NewCandidate {
     pub fn new(digit: u8) -> NewCandidate {
-        NewCandidate(Digit::new(digit).as_set())
+        NewCandidate(Digit::new(digit))
     }
 }
 

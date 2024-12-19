@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use std::ops::BitOrAssign;
+use std::ops::{BitOrAssign, BitXorAssign};
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 
@@ -43,8 +43,21 @@ pub struct DigitValueCell(pub Option<Digit>);
 #[derive(Component, Debug)]
 pub struct AutoCandidates(pub Set<Digit>);
 
+impl AutoCandidates {
+    pub fn insert(&mut self, digit: Digit) {
+        self.0.bitxor_assign(digit);
+    }
+}
+
 #[derive(Component, Debug)]
 pub struct ManualCandidates(pub Set<Digit>);
+
+impl ManualCandidates {
+    pub fn insert(&mut self, digit: Digit) {
+        self.0.bitxor_assign(digit);
+    }
+
+}
 
 #[derive(Component, Debug, PartialEq, Eq)]
 pub enum CellMode {

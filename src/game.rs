@@ -461,6 +461,10 @@ fn init_cells(
                     }
                 }
 
+                if index == 0 {
+                    commands.entity(entity).insert(SelectedCell);
+                }
+
                 continue 'l;
             }
         }

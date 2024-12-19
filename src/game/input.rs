@@ -1,46 +1,66 @@
 use crate::game::UpdateCell;
-use crate::game::cell_state::{CellValue, FixedCell};
-use crate::game::position::CellPosition;
 use crate::game::{CleanCell, NewValueChecker, SelectedCell};
-use bevy::input::keyboard::KeyboardInput;
-use bevy::input::ButtonState;
-use bevy::prelude::{Commands, Entity, EventReader, KeyCode, Single, With};
+use bevy::prelude::*;
+use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 
 pub(crate) fn keyboard_input(
     mut commands: Commands,
-    mut keyboard_input_events: EventReader<KeyboardInput>,
-    mut selected_cell: Single<
-        Entity, With<SelectedCell>,
-    >,
+    mut keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut selected_cell: Single<Entity, With<SelectedCell>>,
 ) {
+    if keyboard_input.just_pressed(KeyCode::Delete) {
+        commands.trigger_targets(CleanCell, vec![*selected_cell]);
+        return;
+    }
+    let press_0 = keyboard_input.any_just_pressed([KeyCode::Digit0, KeyCode::Numpad0]);
+    let press_1 = keyboard_input.any_just_pressed([KeyCode::Digit1, KeyCode::Numpad1]);
+    let press_2 = keyboard_input.any_just_pressed([KeyCode::Digit2, KeyCode::Numpad2]);
+    let press_3 = keyboard_input.any_just_pressed([KeyCode::Digit3, KeyCode::Numpad3]);
+    let press_4 = keyboard_input.any_just_pressed([KeyCode::Digit4, KeyCode::Numpad4]);
+    let press_5 = keyboard_input.any_just_pressed([KeyCode::Digit5, KeyCode::Numpad5]);
+    let press_6 = keyboard_input.any_just_pressed([KeyCode::Digit6, KeyCode::Numpad6]);
+    let press_7 = keyboard_input.any_just_pressed([KeyCode::Digit7, KeyCode::Numpad7]);
+    let press_8 = keyboard_input.any_just_pressed([KeyCode::Digit8, KeyCode::Numpad8]);
+    let press_9 = keyboard_input.any_just_pressed([KeyCode::Digit9, KeyCode::Numpad9]);
 
-    for event in keyboard_input_events.read() {
-        if event.state != ButtonState::Pressed {
-            continue;
-        }
+    let alt = keyboard_input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
-        if event.key_code == KeyCode::Delete {
-            commands.trigger_targets(CleanCell, vec![*selected_cell]);
-        }
+    let num = if press_1 {
+        Some(1)
+    } else if press_2 {
+        Some(2)
+    } else if press_3 {
+        Some(3)
+    } else if press_4 {
+        Some(4)
+    } else if press_5 {
+        Some(5)
+    } else if press_6 {
+        Some(6)
+    } else if press_7 {
+        Some(7)
+    } else if press_8 {
+        Some(8)
+    } else if press_9 {
+        Some(9)
+    } else if press_0 {
+        Some(0)
+    } else {
+        None
+    };
 
-        let num = match event.key_code {
-            KeyCode::Digit0 | KeyCode::Numpad0 => Some(0),
-            KeyCode::Digit1 | KeyCode::Numpad1 => Some(1),
-            KeyCode::Digit2 | KeyCode::Numpad2 => Some(2),
-            KeyCode::Digit3 | KeyCode::Numpad3 => Some(3),
-            KeyCode::Digit4 | KeyCode::Numpad4 => Some(4),
-            KeyCode::Digit5 | KeyCode::Numpad5 => Some(5),
-            KeyCode::Digit6 | KeyCode::Numpad6 => Some(6),
-            KeyCode::Digit7 | KeyCode::Numpad7 => Some(7),
-            KeyCode::Digit8 | KeyCode::Numpad8 => Some(8),
-            KeyCode::Digit9 | KeyCode::Numpad9 => Some(9),
-            _ => None,
-        };
-
-        if let Some(num) = num {
-            commands.trigger_targets(CleanCell, vec![*selected_cell]);
-            commands.trigger_targets(UpdateCell(CellState::Digit(Digit::new(num))), vec![*selected_cell]);
+    if let Some(num) = num {
+        if alt {
+            commands.trigger_targets(
+                UpdateCell(CellState::Candidates(Digit::new(num).as_set())),
+                vec![*selected_cell],
+            );
+        } else {
+            commands.trigger_targets(
+                UpdateCell(CellState::Digit(Digit::new(num))),
+                vec![*selected_cell],
+            );
         }
     }
 }

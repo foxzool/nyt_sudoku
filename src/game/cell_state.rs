@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use std::ops::BitOrAssign;
 use sudoku::bitset::Set;
 use sudoku::board::CellState;
 
@@ -25,15 +26,21 @@ impl CellValue {
     }
 
     pub fn set(&mut self, new: CellState, auto_mode: bool) {
-        if let CellState::Candidates(_) = new {
+        if let CellState::Candidates(new_digit) = new {
             if auto_mode {
-                self.auto_candidates = new;
+                let CellState::Candidates(mut digit_set) = self.auto_candidates else { return; };
+                digit_set.bitor_assign(new_digit);
+                self.auto_candidates = CellState::Candidates(digit_set);
+                self.current = self.auto_candidates;
             } else {
-                self.manual_candidates = new;
+                let CellState::Candidates(mut digit_set) = self.manual_candidates else { return; };
+                digit_set.bitor_assign(new_digit);
+                self.manual_candidates = CellState::Candidates(digit_set);
+                self.current = self.manual_candidates;
             }
+        } else {
+            self.current = new;
         }
-
-        self.current = new;
     }
 
     pub fn current(&self, auto_mode: bool) -> &CellState {

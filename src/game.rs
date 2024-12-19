@@ -6,7 +6,6 @@ use crate::game::input::keyboard_input;
 use crate::game::position::CellPosition;
 use crate::GameState;
 use bevy::color::palettes::basic::RED;
-use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
 use std::ops::BitOrAssign;
@@ -39,17 +38,21 @@ impl Plugin for SudokuPlugin {
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(
                 Update,
-                (keyboard_input, show_conflict)
+                (
+                    keyboard_input,
+                    show_conflict,
+                    kick_candidates,
+
+                )
                     .run_if(in_state(GameState::Playing)),
             )
             .add_observer(on_select_cell)
             .add_observer(on_unselect_cell)
             .add_observer(on_update_cell)
             .add_observer(on_clean_cell)
-            .add_observer(check_solver)
             .add_observer(check_conflict)
             .add_observer(remove_conflict)
-            .add_observer(kick_candidates);
+            .add_observer(check_solver);
     }
 }
 
@@ -496,10 +499,17 @@ fn on_update_cell(
     trigger: Trigger<UpdateCell>,
     mut q_cell: Query<(&mut CellValue, Option<&FixedCell>)>,
     auto_mode: Res<AutoCandidateMode>,
+    mut commands: Commands,
 ) {
     if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
         if opt_fixed.is_none() {
-            cell_value.set(trigger.event().0, **auto_mode);
+            cell_value.bitor_assign(trigger.event().0, **auto_mode);
+
+            if let (CellState::Digit(_digit), CellState::Candidates(_)) =
+                (cell_value.current(**auto_mode), trigger.event().0)
+            {
+                commands.trigger_targets(CleanCell, vec![trigger.entity()]);
+            }
         }
     }
 }
@@ -516,9 +526,6 @@ fn on_clean_cell(
     }
 }
 
-
-
-
 fn candidate_cell_click(
     click: Trigger<Pointer<Click>>,
     mut cell: Query<&mut CandidateCell>,
@@ -529,17 +536,10 @@ fn candidate_cell_click(
     let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
     for ancestor in parent_query.iter_ancestors(click.entity()) {
         if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
-            if let CellState::Candidates(mut candidates) = cell_value.current(**auto_mode) {
-                if candidate_cell.auto_candidate_selected {
-                    candidate_cell.auto_candidate_selected = false;
-                    candidates.remove(Digit::new(candidate_cell.index).as_set());
-                } else {
-                    candidate_cell.auto_candidate_selected = true;
-                    candidates.bitor_assign(Digit::new(candidate_cell.index).as_set());
-                }
-
-                cell_value.set(CellState::Candidates(candidates), **auto_mode);
-            }
+            cell_value.bitor_assign(
+                CellState::Candidates(Digit::new(candidate_cell.index).as_set()),
+                **auto_mode,
+            );
         }
     }
 }
@@ -580,21 +580,24 @@ pub struct CleanCell;
 pub struct CheckConflict;
 
 fn kick_candidates(
-    trigger: Trigger<NewValueChecker>,
-    mut q_cell: Query<(&mut CellValue, &CellPosition)>,
+    changed_cell: Query<(&CellValue, &CellPosition), (Changed<CellValue>, With<SelectedCell>)>,
+    mut q_cell: Query<(&mut CellValue, &CellPosition), Without<SelectedCell>>,
     auto_mode: Res<AutoCandidateMode>,
 ) {
-    let digit = Digit::new(trigger.event().digit);
-    let kicker_position = trigger.event().position.clone();
+    for (cell_state, kicker_position) in changed_cell.iter() {
+        if let CellState::Digit(digit) = cell_state.current(**auto_mode) {
+            info!("kick_candidates: {:?} {} ", digit, kicker_position);
 
-    for (mut cell_value, cell_position) in q_cell.iter_mut() {
-        if kicker_position.row() == cell_position.row()
-            || kicker_position.col() == cell_position.col()
-            || kicker_position.block() == cell_position.block()
-        {
-            if let CellState::Candidates(mut candidates) = cell_value.current(**auto_mode) {
-                candidates.remove(digit.as_set());
-                cell_value.set(CellState::Candidates(candidates), **auto_mode);
+            for (mut cell_value, cell_position) in q_cell.iter_mut() {
+                if kicker_position.row() == cell_position.row()
+                    || kicker_position.col() == cell_position.col()
+                    || kicker_position.block() == cell_position.block()
+                {
+                    if let CellState::Candidates(mut candidates) = cell_value.current(**auto_mode) {
+                        candidates.remove(digit.as_set());
+                        cell_value.set(CellState::Candidates(candidates), **auto_mode);
+                    }
+                }
             }
         }
     }

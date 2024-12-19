@@ -25,7 +25,7 @@ impl CellValue {
         }
     }
 
-    pub fn set(&mut self, new: CellState, auto_mode: bool) {
+    pub fn bitor_assign(&mut self, new: CellState, auto_mode: bool) {
         if let CellState::Candidates(new_digit) = new {
             if auto_mode {
                 let CellState::Candidates(mut digit_set) = self.auto_candidates else { return; };
@@ -41,6 +41,17 @@ impl CellValue {
         } else {
             self.current = new;
         }
+    }
+
+    pub fn set(&mut self, new: CellState, auto_mode: bool) {
+        if let CellState::Candidates(_) = new {
+            if auto_mode {
+                self.auto_candidates = new;
+            } else {
+                self.manual_candidates = new;
+            }
+        }
+        self.current = new;
     }
 
     pub fn current(&self, auto_mode: bool) -> &CellState {

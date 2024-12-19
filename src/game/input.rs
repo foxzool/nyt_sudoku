@@ -3,8 +3,6 @@ use crate::{
     game::{CleanCell, NewCandidate, SelectedCell},
 };
 use bevy::prelude::*;
-use sudoku::bitset::SetElement;
-use sudoku::board::Digit;
 
 pub(crate) fn keyboard_input(
     mut commands: Commands,

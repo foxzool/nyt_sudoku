@@ -1,6 +1,8 @@
 use crate::color::*;
 use crate::game::board::play_board;
-use crate::game::cell_state::{CellMode, CellValue, CellValueBundle, FixedCell};
+use crate::game::cell_state::{
+    CellMode, CellValue, CellValueBundle, CellValueNew, DigitValueCell, FixedCell, ManualCandidates,
+};
 use crate::game::control::control_board;
 use crate::game::input::keyboard_input;
 use crate::game::position::CellPosition;
@@ -404,7 +406,15 @@ pub struct CellGrid;
 
 /// 数字格子
 #[derive(Component)]
-pub struct DigitCell;
+pub struct DigitCellMarker;
+
+/// 自动选择的候选数字
+#[derive(Component)]
+pub struct AutoCandidateCellMarker(pub u8);
+
+/// 手动选择的候选数字
+#[derive(Component)]
+pub struct ManualCandidateCellMarker(pub u8);
 
 /// 冲突红点
 #[derive(Component, Default, Deref, DerefMut)]
@@ -424,10 +434,7 @@ pub struct CandidateCell {
     pub manual_candidate_selected: bool,
 }
 
-fn init_cells(
-    mut commands: Commands,
-    cell_background: Query<(Entity, &CellPosition)>,
-) {
+fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosition)>) {
     let sudoku = Sudoku::generate();
     info!("sudoku: {:?}", sudoku);
 
@@ -487,19 +494,19 @@ fn on_unselect_cell(
 
 fn on_new_digit(
     trigger: Trigger<NewDigit>,
-    mut q_cell: Query<(&mut CellValue, Option<&FixedCell>)>,
-    auto_mode: Res<AutoCandidateMode>,
+    mut q_cell: Query<(&mut DigitValueCell, &mut CellMode, Option<&FixedCell>)>,
     mut commands: Commands,
 ) {
-    if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
+    if let Ok((mut cell_value, mut cell_mode, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
         if opt_fixed.is_none() {
+            *cell_mode = CellMode::Digit;
             let new_digit = trigger.event().0;
-            if let CellState::Digit(old_digit) = cell_value.current(**auto_mode) {
-                if old_digit != new_digit {
-                    commands.trigger_targets(RemoveDigit(old_digit), vec![trigger.entity()]);
-                }
+
+            if let Some(old_digit) = cell_value.0 {
+                commands.trigger_targets(RemoveDigit(old_digit), vec![trigger.entity()]);
             }
-            cell_value.insert(CellState::Digit(new_digit), **auto_mode);
+
+            cell_value.0 = Some(new_digit);
         }
     }
 }
@@ -518,16 +525,30 @@ fn on_new_candidate(
 
 fn on_clean_cell(
     trigger: Trigger<CleanCell>,
-    mut q_cell: Query<(&mut CellValue, Option<&FixedCell>)>,
+    mut q_cell: Query<
+        (&mut DigitValueCell, &mut ManualCandidates, &mut CellMode),
+        Without<FixedCell>,
+    >,
     auto_mode: Res<AutoCandidateMode>,
     mut commands: Commands,
 ) {
-    if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
-        if opt_fixed.is_none() {
-            debug!("on_clean_cell: {:?}", cell_value.current(**auto_mode));
-            if let Some(digit) = cell_value.rollback(**auto_mode) {
-                commands.trigger_targets(RemoveDigit(digit), vec![trigger.entity()]);
+    if let Ok((mut digit_value, mut manual_candidates, mut cell_mode)) =
+        q_cell.get_mut(trigger.entity())
+    {
+        match *cell_mode {
+            CellMode::Digit => {
+                if let Some(digit) = digit_value.0 {
+                    commands.trigger_targets(RemoveDigit(digit), vec![trigger.entity()]);
+                }
+                digit_value.0 = None;
+                if **auto_mode {
+                    *cell_mode = CellMode::AutoCandidates;
+                } else {
+                    *cell_mode = CellMode::ManualCandidates;
+                }
             }
+            CellMode::AutoCandidates => {}
+            CellMode::ManualCandidates => manual_candidates.0 = Set::NONE,
         }
     }
 }
@@ -647,24 +668,20 @@ fn kick_candidates(
 
 fn check_conflict(
     trigger: Trigger<NewDigit>,
-    update_cell: Query<(&CellPosition, Option<&FixedCell>)>,
-    mut q_cell: Query<(Entity, &CellValue, &CellPosition, &Children)>,
+    update_cell: Query<&CellPosition, Without<FixedCell>>,
+    mut q_cell: Query<(Entity, &DigitValueCell, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
-    auto_mode: Res<AutoCandidateMode>,
 ) {
     let check_entity = trigger.entity();
     let digit = trigger.event().0;
-    if let Ok((cell_position, opt_fixed)) = update_cell.get(check_entity) {
-        if opt_fixed.is_some() {
-            return;
-        }
+    if let Ok(cell_position) = update_cell.get(check_entity) {
         let mut conflict_list = vec![];
         for (other_entity, other_cell_value, other_cell_position, children) in q_cell.iter() {
             if cell_position.row() == other_cell_position.row()
                 || cell_position.col() == other_cell_position.col()
                 || cell_position.block() == other_cell_position.block()
             {
-                if let CellState::Digit(other_digit) = other_cell_value.current(**auto_mode) {
+                if let Some(other_digit) = other_cell_value.0 {
                     if digit == other_digit && cell_position != other_cell_position {
                         conflict_list.push(other_entity);
                         for child in children {
@@ -678,14 +695,14 @@ fn check_conflict(
         }
 
         if !conflict_list.is_empty() {
-            for (entity, _other_cell_value, other_cell_position, children) in q_cell.iter() {
-                if other_cell_position == cell_position {
-                    for child in children {
-                        if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                            conflict_count.insert(entity);
-                            conflict_count.extend(conflict_list);
-                            return;
-                        }
+            if let Ok((entity, _other_cell_value, other_cell_position, children)) =
+                q_cell.get(trigger.entity())
+            {
+                for child in children {
+                    if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
+                        conflict_count.insert(entity);
+                        conflict_count.extend(conflict_list);
+                        return;
                     }
                 }
             }
@@ -705,7 +722,7 @@ fn show_conflict(mut q_conflict: Query<(&mut Visibility, &ConflictCount), Change
 
 fn remove_conflict(
     trigger: Trigger<RemoveDigit>,
-    q_cell: Query<(&CellValue, &CellPosition, &Children)>,
+    q_cell: Query<(&DigitValueCell, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
     auto_mode: Res<AutoCandidateMode>,
 ) {
@@ -722,7 +739,7 @@ fn remove_conflict(
             || cell_position.col() == other_cell_position.col()
             || cell_position.block() == other_cell_position.block()
         {
-            if let CellState::Digit(other_digit) = other_cell_value.current(**auto_mode) {
+            if let Some(other_digit) = other_cell_value.0 {
                 if digit == other_digit && cell_position != other_cell_position {
                     for child in children {
                         if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {

@@ -1,10 +1,7 @@
 use crate::color::*;
-use crate::game::cell_state::{CellValue, FixedCell};
+use crate::game::cell_state::{CellMode, CellValue, DigitValueCell, FixedCell, ManualCandidates};
 use crate::game::position::CellPosition;
-use crate::game::{
-    candidate_cell_click, AutoCandidateMode, CandidateCell, CandidatesContainer, CellGrid,
-    ConflictCount, DigitCell, SelectedCell,
-};
+use crate::game::{candidate_cell_click, AutoCandidateCellMarker, AutoCandidateMode, CandidateCell, CandidatesContainer, CellGrid, ConflictCount, DigitCellMarker, ManualCandidateCellMarker, SelectedCell};
 use crate::GameState;
 use bevy::prelude::*;
 use bevy::utils::info;
@@ -13,7 +10,7 @@ use sudoku::board::{CellState, Digit};
 pub(crate) fn plugin(app: &mut App) {
     app.add_systems(
         Update,
-        update_cell_number.run_if(in_state(GameState::Playing)),
+        (show_digit_cell, show_manual_candidates).run_if(in_state(GameState::Playing)),
     );
 }
 
@@ -106,9 +103,10 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                         },
                                                         ..default()
                                                     },
-                                                    DigitCell,
+                                                    DigitCellMarker,
                                                 ));
 
+                                                // 冲突计数器
                                                 builder.spawn((
                                                     ImageNode {
                                                         image: asset_server.load("textures/circle.png"),
@@ -178,13 +176,45 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                         },
                                                                         ..default()
                                                                     },
-                                                                    // Visibility::Hidden,
+                                                                    Visibility::Hidden,
                                                                     // BackgroundColor(Color::WHITE),
-                                                                    CandidateCell {
-                                                                        index: i,
-                                                                        auto_candidate_selected: false,
-                                                                        manual_candidate_selected: false,
+                                                                    AutoCandidateCellMarker(i),
+                                                                ))
+                                                                .observe(candidate_cell_move)
+                                                                .observe(candidate_cell_out)
+                                                                .observe(candidate_cell_click);
+                                                        }
+
+                                                        for i in 1..=9u8 {
+                                                            builder
+                                                                .spawn((
+                                                                    Text::new(i.to_string()),
+                                                                    TextFont {
+                                                                        font: asset_server.load("fonts/franklin-normal-700.ttf"),
+                                                                        font_size: 16.0,
+                                                                        ..default()
                                                                     },
+                                                                    TextColor(*DARK_BLACK),
+                                                                    TextLayout::new_with_justify(
+                                                                        JustifyText::Center,
+                                                                    ),
+                                                                    Node {
+                                                                        align_items: AlignItems::Center,
+                                                                        justify_items:
+                                                                        JustifyItems::Center,
+                                                                        align_content:
+                                                                        AlignContent::Center,
+                                                                        justify_content:
+                                                                        JustifyContent::Center,
+                                                                        margin: UiRect {
+                                                                            top: Val::Px(4.),
+                                                                            ..default()
+                                                                        },
+                                                                        ..default()
+                                                                    },
+                                                                    Visibility::Hidden,
+                                                                    // BackgroundColor(Color::WHITE),
+                                                                    AutoCandidateCellMarker(i),
                                                                 ))
                                                                 .observe(candidate_cell_move)
                                                                 .observe(candidate_cell_out)
@@ -227,26 +257,15 @@ impl PreviewCandidate {
 
 fn candidate_cell_move(
     trigger: Trigger<Pointer<Over>>,
-    cell: Query<(Entity, &CandidateCell)>,
-    parent_query: Query<&Parent>,
-    q_select: Query<&SelectedCell>,
-    auto_mode: Res<AutoCandidateMode>,
+    // cell: Query<(Entity, &CandidateCell)>,
+    // parent_query: Query<&Parent>,
+    // q_select: Query<&SelectedCell>,
+    // auto_mode: Res<AutoCandidateMode>,
     mut commands: Commands,
 ) {
-    let (entity, candidate_cell) = cell.get(trigger.entity()).unwrap();
-    for ancestor in parent_query.iter_ancestors(entity) {
-        if q_select.get(ancestor).is_ok() {
-            if **auto_mode && !candidate_cell.auto_candidate_selected {
-                commands
-                    .entity(trigger.entity())
-                    .insert(PreviewCandidate::hold());
-            } else if !candidate_cell.manual_candidate_selected {
-                commands
-                    .entity(trigger.entity())
-                    .insert(PreviewCandidate::hold());
-            }
-        }
-    }
+    commands
+        .entity(trigger.entity())
+        .insert(PreviewCandidate::hold());
 }
 
 fn candidate_cell_out(
@@ -281,16 +300,70 @@ fn on_click_cell(
     commands.entity(trigger.entity()).insert(SelectedCell);
 }
 
+fn show_digit_cell(
+    q_cell: Query<(Entity, &DigitValueCell, &CellMode)>,
+    children: Query<&Children>,
+    mut digit_cell: Query<(&mut Text, &mut Visibility), With<DigitCellMarker>>,
+) {
+    for (entity, digit_value, cell_mode) in q_cell.iter() {
+        for child in children.iter_descendants(entity) {
+            if let Ok((mut text, mut visibility)) = digit_cell.get_mut(child) {
+                if let CellMode::Digit = cell_mode {
+                    if let Some(digit) = digit_value.0 {
+                        text.0 = digit.get().to_string();
+                    }
+                    *visibility = Visibility::Visible;
+                } else {
+                    *visibility = Visibility::Hidden;
+                }
+            }
+        }
+
+    }
+}
+
+fn show_manual_candidates(
+    q_cell: Query<(Entity, &ManualCandidates, &CellMode)>,
+    children: Query<&Children>,
+    mut candidate_cell: Query<
+        (
+            &mut TextColor,
+            &mut CandidateCell,
+        ),
+        With<ManualCandidateCellMarker>,
+    >,
+
+
+) {
+
+    for (entity, manual_candidates, cell_mode) in q_cell.iter() {
+        for child in children.iter_descendants(entity) {
+            if let Ok((mut text_color, mut cell)) = candidate_cell.get_mut(child) {
+                if let CellMode::ManualCandidates = cell_mode {
+                    if manual_candidates.0.contains(Digit::new(cell.index).as_set()) {
+                        *text_color = TextColor(*GRAY);
+                    } else {
+                        *text_color = TextColor(*LIGHTER_GRAY);
+                    }
+                } else {
+                    *text_color = TextColor(TRANSPARENT);
+                }
+            }
+        }
+
+    }
+}
+
 fn update_cell_number(
     cell: Query<(&CellValue, &Children, Option<&FixedCell>, &CellPosition)>,
     auto_mode: Res<AutoCandidateMode>,
     mut digit_cell: Query<
         (&mut Text, &mut Visibility),
-        (With<DigitCell>, Without<CandidatesContainer>),
+        (With<DigitCellMarker>, Without<CandidatesContainer>),
     >,
     mut candidates_container: Query<
         (&mut Visibility, &Children),
-        (With<CandidatesContainer>, Without<DigitCell>),
+        (With<CandidatesContainer>, Without<DigitCellMarker>),
     >,
     mut candidate_cell: Query<
         (
@@ -298,7 +371,7 @@ fn update_cell_number(
             &mut CandidateCell,
             Option<&mut PreviewCandidate>,
         ),
-        (Without<DigitCell>, Without<CandidatesContainer>),
+        (Without<DigitCellMarker>, Without<CandidatesContainer>),
     >,
     time: Res<Time>,
     mut commands: Commands,

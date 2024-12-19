@@ -5,23 +5,23 @@ use sudoku::board::{CellState, Digit};
 
 #[derive(Bundle)]
 pub struct CellValueBundle {
-    pub  digit_value: DigitValue,
-    pub  auto_candidates: AutoCandidates,
-    pub  manual_candidates: ManualCandidates,
-    pub   cell_mode: CellMode,
+    pub digit_value: DigitValueCell,
+    pub auto_candidates: AutoCandidates,
+    pub manual_candidates: ManualCandidates,
+    pub cell_mode: CellMode,
 }
 
 impl CellValueBundle {
     pub fn from_cell_state(cell_state: CellState) -> Self {
         let (digit_value, auto_candidates, manual_candidates, cell_mode) = match cell_state {
             CellState::Digit(digit) => (
-                DigitValue(Some(digit)),
+                DigitValueCell(Some(digit)),
                 AutoCandidates(Set::NONE),
                 ManualCandidates(Set::NONE),
                 CellMode::Digit,
             ),
             CellState::Candidates(digit_set) => (
-                DigitValue(None),
+                DigitValueCell(None),
                 AutoCandidates(digit_set),
                 ManualCandidates(Set::NONE),
                 CellMode::AutoCandidates,
@@ -37,8 +37,8 @@ impl CellValueBundle {
     }
 }
 
-#[derive(Component, Debug)]
-pub struct DigitValue(pub Option<Digit>);
+#[derive(Component, Debug, Deref, DerefMut)]
+pub struct DigitValueCell(pub Option<Digit>);
 
 #[derive(Component, Debug)]
 pub struct AutoCandidates(pub Set<Digit>);
@@ -52,6 +52,9 @@ pub enum CellMode {
     AutoCandidates,
     ManualCandidates,
 }
+
+#[derive(Component, Debug)]
+pub struct CellValueNew(pub CellState);
 
 /// 格子的值
 #[derive(Component, Debug)]

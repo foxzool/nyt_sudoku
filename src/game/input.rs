@@ -1,8 +1,10 @@
-use crate::game::UpdateCell;
-use crate::game::{CleanCell, NewValueChecker, SelectedCell};
+use crate::{
+    game::NewDigit,
+    game::{CleanCell, NewCandidate, SelectedCell},
+};
 use bevy::prelude::*;
-use sudoku::bitset::Set;
-use sudoku::board::{CellState, Digit};
+use sudoku::bitset::SetElement;
+use sudoku::board::Digit;
 
 pub(crate) fn keyboard_input(
     mut commands: Commands,
@@ -52,15 +54,9 @@ pub(crate) fn keyboard_input(
 
     if let Some(num) = num {
         if alt {
-            commands.trigger_targets(
-                UpdateCell(CellState::Candidates(Digit::new(num).as_set())),
-                vec![*selected_cell],
-            );
+            commands.trigger_targets(NewCandidate(Digit::new(num).as_set()), vec![*selected_cell]);
         } else {
-            commands.trigger_targets(
-                UpdateCell(CellState::Digit(Digit::new(num))),
-                vec![*selected_cell],
-            );
+            commands.trigger_targets(NewDigit(Digit::new(num)), vec![*selected_cell]);
         }
     }
 }

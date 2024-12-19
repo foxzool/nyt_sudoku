@@ -39,8 +39,7 @@ impl CellPosition {
         let col = box_col * 3 + inner_col;
 
         // 将行列转换成线性索引
-
-        CellPosition(row * 9 + col)
+        CellPosition::new(row * 9 + col)
     }
 
     pub fn row(&self) -> u8 {

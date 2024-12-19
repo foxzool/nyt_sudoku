@@ -1,6 +1,6 @@
 use crate::color::*;
 use crate::game::board::play_board;
-use crate::game::cell_state::{CellValue, FixedCell};
+use crate::game::cell_state::{CellMode, CellValue, CellValueBundle, FixedCell};
 use crate::game::control::control_board;
 use crate::game::input::keyboard_input;
 use crate::game::position::CellPosition;
@@ -427,7 +427,6 @@ pub struct CandidateCell {
 fn init_cells(
     mut commands: Commands,
     cell_background: Query<(Entity, &CellPosition)>,
-    auto_mode: Res<AutoCandidateMode>,
 ) {
     let sudoku = Sudoku::generate();
     info!("sudoku: {:?}", sudoku);
@@ -439,24 +438,22 @@ fn init_cells(
     });
 
     'l: for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
-        let cell_value = CellValue::new(cell_state);
+        let bundle = CellValueBundle::from_cell_state(cell_state);
 
         for (entity, cell_position) in cell_background.iter() {
             if cell_position.0 == index as u8 {
-                match &cell_value.current(**auto_mode) {
-                    // 如果一开始就是数字，那么这个格子是固定颜色
-                    CellState::Digit(_) => {
-                        commands
-                            .entity(entity)
-                            .insert(FixedCell)
-                            .insert(cell_value)
-                            .insert(BackgroundColor(*EXTRA_LIGHT_GRAY));
-                    }
-                    CellState::Candidates(_) => {
-                        commands.entity(entity).insert(cell_value);
-                    }
+                // 如果一开始就是数字，那么这个格子是固定颜色
+                if bundle.cell_mode == CellMode::Digit {
+                    commands
+                        .entity(entity)
+                        .insert(bundle)
+                        .insert(FixedCell)
+                        .insert(BackgroundColor(*EXTRA_LIGHT_GRAY));
+                } else {
+                    commands.entity(entity).insert(bundle);
                 }
 
+                // 如果是第一个格子，那么选中
                 if index == 0 {
                     commands.entity(entity).insert(SelectedCell);
                 }
@@ -600,11 +597,29 @@ pub struct CleanCell;
 #[derive(Event)]
 pub struct NewCandidate(pub Set<Digit>);
 
+impl NewCandidate {
+    pub fn new(digit: u8) -> NewCandidate {
+        NewCandidate(Digit::new(digit).as_set())
+    }
+}
+
 #[derive(Event)]
 pub struct NewDigit(pub Digit);
 
+impl NewDigit {
+    pub fn new(digit: u8) -> NewDigit {
+        NewDigit(Digit::new(digit))
+    }
+}
+
 #[derive(Event)]
 pub struct RemoveDigit(pub Digit);
+
+impl RemoveDigit {
+    pub fn new(digit: u8) -> RemoveDigit {
+        RemoveDigit(Digit::new(digit))
+    }
+}
 
 fn kick_candidates(
     changed_cell: Query<(&CellValue, &CellPosition), (Changed<CellValue>, With<SelectedCell>)>,

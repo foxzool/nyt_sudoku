@@ -340,8 +340,10 @@ fn update_cell_number(
                                 if candidates.contains(Digit::new(cell.index).as_set()) {
                                     if **auto_mode {
                                         cell.auto_candidate_selected = true;
+                                        cell.manual_candidate_selected = false;
                                     } else {
                                         cell.manual_candidate_selected = true;
+                                        cell.auto_candidate_selected = false;
                                     }
 
                                     *text_color = TextColor(*GRAY);

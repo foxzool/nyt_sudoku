@@ -54,9 +54,9 @@ pub(crate) fn keyboard_input(
 
     if let Some(num) = num {
         if alt {
-            commands.trigger_targets(NewCandidate(Digit::new(num).as_set()), vec![*selected_cell]);
+            commands.trigger_targets(NewCandidate::new(num), vec![*selected_cell]);
         } else {
-            commands.trigger_targets(NewDigit(Digit::new(num)), vec![*selected_cell]);
+            commands.trigger_targets(NewDigit::new(num), vec![*selected_cell]);
         }
     }
 }

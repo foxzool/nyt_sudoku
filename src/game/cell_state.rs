@@ -3,6 +3,56 @@ use std::ops::BitOrAssign;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 
+#[derive(Bundle)]
+pub struct CellValueBundle {
+    pub  digit_value: DigitValue,
+    pub  auto_candidates: AutoCandidates,
+    pub  manual_candidates: ManualCandidates,
+    pub   cell_mode: CellMode,
+}
+
+impl CellValueBundle {
+    pub fn from_cell_state(cell_state: CellState) -> Self {
+        let (digit_value, auto_candidates, manual_candidates, cell_mode) = match cell_state {
+            CellState::Digit(digit) => (
+                DigitValue(Some(digit)),
+                AutoCandidates(Set::NONE),
+                ManualCandidates(Set::NONE),
+                CellMode::Digit,
+            ),
+            CellState::Candidates(digit_set) => (
+                DigitValue(None),
+                AutoCandidates(digit_set),
+                ManualCandidates(Set::NONE),
+                CellMode::AutoCandidates,
+            ),
+        };
+
+        CellValueBundle {
+            digit_value,
+            auto_candidates,
+            manual_candidates,
+            cell_mode,
+        }
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct DigitValue(pub Option<Digit>);
+
+#[derive(Component, Debug)]
+pub struct AutoCandidates(pub Set<Digit>);
+
+#[derive(Component, Debug)]
+pub struct ManualCandidates(pub Set<Digit>);
+
+#[derive(Component, Debug, PartialEq, Eq)]
+pub enum CellMode {
+    Digit,
+    AutoCandidates,
+    ManualCandidates,
+}
+
 /// 格子的值
 #[derive(Component, Debug)]
 pub struct CellValue {

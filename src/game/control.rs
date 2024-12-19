@@ -1,6 +1,8 @@
 use crate::color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR};
-use crate::game::AutoCandidateMode;
+use crate::game::cell_state::CellValue;
+use crate::game::{AutoCandidateMode, CleanCell, NewCandidate, NewDigit, SelectedCell};
 use bevy::prelude::*;
+use sudoku::board::{CellState, Digit};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<SelectedTab>()
@@ -167,7 +169,9 @@ pub(crate) fn control_board(
                                 BorderRadius::all(Val::Px(3.0)),
                                 BackgroundColor(*EXTRA_LIGHT_GRAY),
                                 BorderColor(*GRAY),
+                                ControlNumber(i),
                             ))
+                            .observe(mouse_click_control_digit)
                             .with_children(|builder| {
                                 // 数字格子
                                 builder.spawn((
@@ -254,6 +258,13 @@ pub(crate) fn control_board(
                             BackgroundColor(*EXTRA_LIGHT_GRAY),
                             BorderColor(*GRAY),
                         ))
+                        .observe(
+                            |_trigger: Trigger<Pointer<Click>>,
+                             selected_cell: Single<Entity, With<SelectedCell>>,
+                             mut commands: Commands| {
+                                commands.trigger_targets(CleanCell, vec![*selected_cell]);
+                            },
+                        )
                         .with_children(|builder| {
                             builder.spawn((
                                 ImageNode {
@@ -440,6 +451,33 @@ fn update_control_tab(
                     top: Val::Px(1.0),
                     bottom: Val::Px(1.0),
                 }
+            }
+        }
+    }
+}
+
+#[derive(Component)]
+struct ControlNumber(u8);
+
+fn mouse_click_control_digit(
+    trigger: Trigger<Pointer<Click>>,
+    q_cell: Query<&ControlNumber>,
+    selected_cell: Single<Entity, With<SelectedCell>>,
+    mut commands: Commands,
+    auto_mode: Res<AutoCandidateMode>,
+    selected_tab: Res<SelectedTab>,
+) {
+    println!("mouse_click_control_digit");
+    if let Ok(cell_value) = q_cell.get(trigger.entity()) {
+
+        match selected_tab.0 {
+            ControlTab::Normal => {
+                info!("New digit: {} ", cell_value.0);
+                commands.trigger_targets(NewDigit::new(cell_value.0), vec![*selected_cell]);
+            }
+            ControlTab::Candidate => {
+                info!("New candidate: {} ", cell_value.0);
+                commands.trigger_targets(NewCandidate::new(cell_value.0), vec![*selected_cell]);
             }
         }
     }

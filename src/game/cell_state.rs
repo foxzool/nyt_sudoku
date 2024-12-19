@@ -30,7 +30,7 @@ impl CellValue {
         }
     }
 
-    pub fn add_value(&mut self, new: CellState, auto_mode: bool) {
+    pub fn insert(&mut self, new: CellState, auto_mode: bool) {
         match new {
             CellState::Digit(digit) => {
                 self.digit = Some(digit);

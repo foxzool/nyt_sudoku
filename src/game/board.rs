@@ -8,7 +8,6 @@ use crate::game::{
 use crate::GameState;
 use bevy::prelude::*;
 use bevy::utils::info;
-use std::time::Duration;
 use sudoku::board::{CellState, Digit};
 
 pub(crate) fn plugin(app: &mut App) {

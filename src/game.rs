@@ -424,9 +424,6 @@ pub struct CandidateCell {
     pub manual_candidate_selected: bool,
 }
 
-#[derive(Component)]
-struct ControlLayout;
-
 fn init_cells(
     mut commands: Commands,
     cell_background: Query<(Entity, &CellPosition)>,
@@ -505,7 +502,7 @@ fn on_new_digit(
                     commands.trigger_targets(RemoveDigit(old_digit), vec![trigger.entity()]);
                 }
             }
-            cell_value.add_value(CellState::Digit(new_digit), **auto_mode);
+            cell_value.insert(CellState::Digit(new_digit), **auto_mode);
         }
     }
 }
@@ -517,7 +514,7 @@ fn on_new_candidate(
 ) {
     if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
         if opt_fixed.is_none() {
-            cell_value.add_value(CellState::Candidates(trigger.event().0), **auto_mode);
+            cell_value.insert(CellState::Candidates(trigger.event().0), **auto_mode);
         }
     }
 }
@@ -530,7 +527,7 @@ fn on_clean_cell(
 ) {
     if let Ok((mut cell_value, opt_fixed)) = q_cell.get_mut(trigger.entity()) {
         if opt_fixed.is_none() {
-            info!("on_clean_cell: {:?}", cell_value.current(**auto_mode));
+            debug!("on_clean_cell: {:?}", cell_value.current(**auto_mode));
             if let Some(digit) = cell_value.rollback(**auto_mode) {
                 commands.trigger_targets(RemoveDigit(digit), vec![trigger.entity()]);
             }
@@ -548,10 +545,31 @@ fn candidate_cell_click(
     let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
     for ancestor in parent_query.iter_ancestors(click.entity()) {
         if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
-            cell_value.add_value(
-                CellState::Candidates(Digit::new(candidate_cell.index).as_set()),
-                **auto_mode,
-            );
+            if let CellState::Candidates(mut candidates) = cell_value.current(**auto_mode) {
+                match (
+                    candidate_cell.auto_candidate_selected,
+                    candidate_cell.manual_candidate_selected,
+                ) {
+                    (true, false) => {
+                        candidate_cell.auto_candidate_selected = false;
+                        candidates.remove(Digit::new(candidate_cell.index).as_set());
+                    }
+                    (false, true) => {
+                        candidate_cell.manual_candidate_selected = false;
+                        candidates.remove(Digit::new(candidate_cell.index).as_set());
+                    }
+                    (false, false) => {
+                        candidate_cell.manual_candidate_selected = true;
+                        candidates.bitor_assign(Digit::new(candidate_cell.index).as_set());
+                    }
+                    (true, true) => {
+                        candidate_cell.auto_candidate_selected = false;
+                        candidate_cell.manual_candidate_selected = false;
+                        candidates.remove(Digit::new(candidate_cell.index).as_set());
+                    }
+                }
+                cell_value.set(CellState::Candidates(candidates), **auto_mode);
+            }
         }
     }
 }
@@ -595,7 +613,7 @@ fn kick_candidates(
 ) {
     for (cell_state, kicker_position) in changed_cell.iter() {
         if let CellState::Digit(digit) = cell_state.current(**auto_mode) {
-            info!("kick_candidates: {:?} {} ", digit, kicker_position);
+            debug!("kick_candidates: {:?} {} ", digit, kicker_position);
 
             for (mut cell_value, cell_position) in q_cell.iter_mut() {
                 if kicker_position.row() == cell_position.row()
@@ -614,14 +632,17 @@ fn kick_candidates(
 
 fn check_conflict(
     trigger: Trigger<NewDigit>,
-    update_cell: Query<&CellPosition>,
+    update_cell: Query<(&CellPosition, Option<&FixedCell>)>,
     mut q_cell: Query<(Entity, &CellValue, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
     auto_mode: Res<AutoCandidateMode>,
 ) {
     let check_entity = trigger.entity();
     let digit = trigger.event().0;
-    if let Ok(cell_position) = update_cell.get(check_entity) {
+    if let Ok((cell_position, opt_fixed)) = update_cell.get(check_entity) {
+        if opt_fixed.is_some() {
+            return;
+        }
         let mut conflict_list = vec![];
         for (other_entity, other_cell_value, other_cell_position, children) in q_cell.iter() {
             if cell_position.row() == other_cell_position.row()
@@ -669,11 +690,11 @@ fn show_conflict(mut q_conflict: Query<(&mut Visibility, &ConflictCount), Change
 
 fn remove_conflict(
     trigger: Trigger<RemoveDigit>,
-    mut q_cell: Query<(&CellValue, &CellPosition, &Children)>,
+    q_cell: Query<(&CellValue, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
     auto_mode: Res<AutoCandidateMode>,
 ) {
-    let (cell_value, cell_position, children) = q_cell.get(trigger.entity()).unwrap();
+    let (_cell_value, cell_position, children) = q_cell.get(trigger.entity()).unwrap();
     let digit = trigger.event().0;
     for child in children {
         if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
@@ -691,7 +712,7 @@ fn remove_conflict(
                     for child in children {
                         if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
                             conflict_count.remove(&trigger.entity());
-                            println!(
+                            debug!(
                                 "clean {} conflict count: {}",
                                 other_cell_position,
                                 conflict_count.0.len()

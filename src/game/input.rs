@@ -9,10 +9,9 @@ use bevy::prelude::*;
 pub(crate) fn keyboard_input(
     mut commands: Commands,
     mut keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut selected_cell: Single<Entity, With<SelectedCell>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Delete) {
-        commands.trigger_targets(CleanCell, vec![*selected_cell]);
+        commands.send_event(CleanCell);
         return;
     }
 
@@ -69,9 +68,9 @@ pub(crate) fn keyboard_input(
 
     if let Some(num) = num {
         if alt {
-            commands.trigger_targets(NewCandidate::new(num), vec![*selected_cell]);
+            commands.send_event(NewCandidate::new(num));
         } else {
-            commands.trigger_targets(NewDigit::new(num), vec![*selected_cell]);
+            commands.send_event(NewDigit::new(num));
         }
     }
 }

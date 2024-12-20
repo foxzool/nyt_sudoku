@@ -371,7 +371,7 @@ fn show_preview_number(
 
 fn candidate_cell_click<C: CandidatesValue, M: CandidateMarker>(
     click: Trigger<Pointer<Click>>,
-     cell: Query<&M>,
+    cell: Query<&M>,
     parent_query: Query<&Parent>,
     mut q_select: Query<&mut C, With<SelectedCell>>,
     mut commands: Commands,

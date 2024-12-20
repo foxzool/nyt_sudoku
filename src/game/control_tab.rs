@@ -1,20 +1,29 @@
 use crate::color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR};
 use crate::game::cell_state::CellValue;
 use crate::game::{AutoCandidateMode, CleanCell, NewCandidate, NewDigit, SelectedCell};
+use crate::GameState;
 use bevy::prelude::*;
 use sudoku::board::{CellState, Digit};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<SelectedTab>()
+        .add_event::<ToggleTab>()
         .add_systems(
             Update,
-            (update_control_tab, show_number).run_if(resource_changed::<SelectedTab>),
+            (switch_control_tab_ui, show_number).run_if(resource_changed::<SelectedTab>),
         )
         .add_systems(
             Update,
             (update_auto_candidate_icon,).run_if(resource_changed::<AutoCandidateMode>),
+        )
+        .add_systems(
+            Update,
+            (update_control_tab,).run_if(in_state(GameState::Playing)),
         );
 }
+
+#[derive(Event)]
+pub struct ToggleTab;
 
 #[derive(Component)]
 pub struct ControlDigit;
@@ -94,9 +103,8 @@ pub(crate) fn control_board(
                             TextColor(WHITE_COLOR),
                         ))
                         .observe(
-                            |trigger: Trigger<Pointer<Click>>,
-                             mut selected_tab: ResMut<SelectedTab>| {
-                                selected_tab.0 = ControlTab::Normal;
+                            |trigger: Trigger<Pointer<Click>>, mut ev: EventWriter<ToggleTab>| {
+                                ev.send(ToggleTab);
                             },
                         );
 
@@ -127,9 +135,8 @@ pub(crate) fn control_board(
                             TextColor(*DARK_GRAY),
                         ))
                         .observe(
-                            |trigger: Trigger<Pointer<Click>>,
-                             mut selected_tab: ResMut<SelectedTab>| {
-                                selected_tab.0 = ControlTab::Candidate;
+                            |trigger: Trigger<Pointer<Click>>, mut ev: EventWriter<ToggleTab>| {
+                                ev.send(ToggleTab);
                             },
                         );
                 });
@@ -399,7 +406,20 @@ fn show_number(
     }
 }
 
-fn update_control_tab(
+fn update_control_tab(mut _ev: EventReader<ToggleTab>, mut selected_tab: ResMut<SelectedTab>) {
+    for _ev in _ev.read() {
+        match selected_tab.0 {
+            ControlTab::Normal => {
+                selected_tab.0 = ControlTab::Candidate;
+            }
+            ControlTab::Candidate => {
+                selected_tab.0 = ControlTab::Normal;
+            }
+        }
+    }
+}
+
+fn switch_control_tab_ui(
     selected_tab: Res<SelectedTab>,
     mut tab_query: Query<(
         &ChangeTab,
@@ -467,9 +487,7 @@ fn mouse_click_control_digit(
     auto_mode: Res<AutoCandidateMode>,
     selected_tab: Res<SelectedTab>,
 ) {
-    println!("mouse_click_control_digit");
     if let Ok(cell_value) = q_cell.get(trigger.entity()) {
-
         match selected_tab.0 {
             ControlTab::Normal => {
                 info!("New digit: {} ", cell_value.0);

@@ -4,7 +4,7 @@ use crate::game::cell_state::{
     AutoCandidates, CellMode, CellValue, CellValueBundle, CellValueNew, DigitValueCell, FixedCell,
     ManualCandidates,
 };
-use crate::game::control::control_board;
+use crate::game::control_tab::control_board;
 use crate::game::input::keyboard_input;
 use crate::game::position::CellPosition;
 use crate::GameState;
@@ -19,7 +19,7 @@ use sudoku::Sudoku;
 
 mod board;
 mod cell_state;
-mod control;
+mod control_tab;
 mod input;
 mod position;
 
@@ -35,7 +35,7 @@ pub struct SudokuManager {
 /// Player game is only active during the State `GameState::Playing`
 impl Plugin for SudokuPlugin {
     fn build(&self, app: &mut App) {
-        control::plugin(app);
+        control_tab::plugin(app);
         board::plugin(app);
         app.init_resource::<AutoCandidateMode>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())

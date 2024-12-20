@@ -1,3 +1,4 @@
+use crate::game::control_tab::ToggleTab;
 use crate::{
     game::NewDigit,
     game::{CleanCell, NewCandidate, SelectedCell},
@@ -13,6 +14,12 @@ pub(crate) fn keyboard_input(
         commands.trigger_targets(CleanCell, vec![*selected_cell]);
         return;
     }
+
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        commands.send_event(ToggleTab);
+        return;
+    }
+
     let press_0 = keyboard_input.any_just_pressed([KeyCode::Digit0, KeyCode::Numpad0]);
     let press_1 = keyboard_input.any_just_pressed([KeyCode::Digit1, KeyCode::Numpad1]);
     let press_2 = keyboard_input.any_just_pressed([KeyCode::Digit2, KeyCode::Numpad2]);

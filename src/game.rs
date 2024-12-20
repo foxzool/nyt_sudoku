@@ -509,7 +509,9 @@ fn on_new_digit(
         let new_digit = trigger.event().0;
 
         if let Some(old_digit) = cell_value.0 {
-            commands.trigger_targets(RemoveDigit(old_digit), vec![trigger.entity()]);
+            if old_digit != new_digit {
+                commands.trigger_targets(RemoveDigit(old_digit), vec![trigger.entity()]);
+            }
         }
 
         cell_value.0 = Some(new_digit);

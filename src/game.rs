@@ -1,7 +1,7 @@
 use crate::color::*;
 use crate::game::board::{play_board, PreviewCandidate};
 use crate::game::cell_state::{
-    AutoCandidates, CellMode, CellValue, CellValueBundle, CellValueNew, DigitValueCell, FixedCell,
+    AutoCandidates, CellMode, CellValue, CellValueBundle, DigitValueCell, FixedCell,
     ManualCandidates,
 };
 use crate::game::control_tab::control_board;
@@ -38,6 +38,7 @@ impl Plugin for SudokuPlugin {
         control_tab::plugin(app);
         board::plugin(app);
         app.init_resource::<AutoCandidateMode>()
+            .add_event::<MoveSelectCell>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(
                 Update,
@@ -400,6 +401,14 @@ fn title_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut
 ///  选中的格子
 #[derive(Component)]
 pub struct SelectedCell;
+
+#[derive(Event)]
+pub enum MoveSelectCell {
+    Up,
+    Down,
+    Left,
+    Right,
+}
 
 /// 格子背景索引
 #[derive(Component)]

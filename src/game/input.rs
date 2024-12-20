@@ -1,4 +1,5 @@
-use crate::game::control_tab::{ControlTab, ToggleTab};
+use crate::game::control_tab::ToggleTab;
+use crate::game::MoveSelectCell;
 use crate::{
     game::NewDigit,
     game::{CleanCell, NewCandidate, SelectedCell},
@@ -21,7 +22,7 @@ pub(crate) fn keyboard_input(
     }
     if keyboard_input.any_just_pressed([KeyCode::AltLeft, KeyCode::AltRight]) {
         commands.send_event(ToggleTab::Any);
-        return
+        return;
     }
 
     if keyboard_input.any_just_released([KeyCode::AltLeft, KeyCode::AltRight]) {
@@ -41,7 +42,6 @@ pub(crate) fn keyboard_input(
     let press_9 = keyboard_input.any_just_pressed([KeyCode::Digit9, KeyCode::Numpad9]);
 
     let alt = keyboard_input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
-
 
     let num = if press_1 {
         Some(1)
@@ -73,5 +73,18 @@ pub(crate) fn keyboard_input(
         } else {
             commands.trigger_targets(NewDigit::new(num), vec![*selected_cell]);
         }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+        commands.send_event(MoveSelectCell::Up);
+    }
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+        commands.send_event(MoveSelectCell::Down);
+    }
+    if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+        commands.send_event(MoveSelectCell::Left);
+    }
+    if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+        commands.send_event(MoveSelectCell::Right);
     }
 }

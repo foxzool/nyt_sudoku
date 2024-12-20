@@ -25,6 +25,10 @@ impl CellPosition {
         CellPosition(cell)
     }
 
+    pub fn from_row_col(row: u8, col: u8) -> CellPosition {
+        CellPosition::new(row * 9 + col)
+    }
+
     pub fn from_block_row_col(block: u8, inner_box_pos: u8) -> CellPosition {
         // 计算宫格的起始位置
         let box_row = block / 3;

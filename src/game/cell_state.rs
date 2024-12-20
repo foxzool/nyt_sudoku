@@ -71,9 +71,6 @@ pub enum CellMode {
     ManualCandidates,
 }
 
-#[derive(Component, Debug)]
-pub struct CellValueNew(pub CellState);
-
 /// 格子的值
 #[derive(Component, Debug)]
 pub struct CellValue {

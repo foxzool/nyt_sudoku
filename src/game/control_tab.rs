@@ -25,7 +25,6 @@ pub(crate) fn plugin(app: &mut App) {
 #[derive(Event)]
 pub enum ToggleTab {
     Any,
-    Previous,
     Normal,
     Candidate,
 }
@@ -428,14 +427,6 @@ fn update_control_tab(
                     *l = ControlTab::Candidate;
                 }
             },
-            ToggleTab::Previous => match selected_tab.0 {
-                ControlTab::Normal => {
-                    selected_tab.0 = ControlTab::Candidate;
-                }
-                ControlTab::Candidate => {
-                    selected_tab.0 = ControlTab::Normal;
-                }
-            }
             ToggleTab::Normal => {
                 selected_tab.0 = ControlTab::Normal;
                 *l = ControlTab::Candidate;

@@ -1,5 +1,5 @@
 use crate::color::*;
-use crate::game::board::play_board;
+use crate::game::board::{play_board, PreviewCandidate};
 use crate::game::cell_state::{
     AutoCandidates, CellMode, CellValue, CellValueBundle, CellValueNew, DigitValueCell, FixedCell,
     ManualCandidates,
@@ -452,7 +452,7 @@ fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosit
     });
 
     'l: for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
-        let bundle = CellValueBundle::from_cell_state(cell_state);
+        let bundle = CellValueBundle::from_cell_state(cell_state, false);
 
         for (entity, cell_position) in cell_background.iter() {
             if cell_position.0 == index as u8 {
@@ -567,6 +567,8 @@ fn on_clean_cell(
         Without<FixedCell>,
     >,
     auto_mode: Res<AutoCandidateMode>,
+    children: Query<&Children>,
+    q_preview: Query<&PreviewCandidate>,
     mut commands: Commands,
 ) {
     if let Ok((mut digit_value, mut manual_candidates, mut cell_mode)) =
@@ -586,6 +588,13 @@ fn on_clean_cell(
             }
             CellMode::AutoCandidates => {}
             CellMode::ManualCandidates => manual_candidates.0 = Set::NONE,
+        }
+
+        for child in children.iter_descendants(trigger.entity()) {
+            if let Ok(_preview) = q_preview.get(child) {
+                commands.entity(child).remove::<PreviewCandidate>();
+            }
+
         }
     }
 }

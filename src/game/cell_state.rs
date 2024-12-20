@@ -12,7 +12,12 @@ pub struct CellValueBundle {
 }
 
 impl CellValueBundle {
-    pub fn from_cell_state(cell_state: CellState) -> Self {
+    pub fn from_cell_state(cell_state: CellState, auto_candidates: bool) -> Self {
+        let cell_mode = if auto_candidates {
+            CellMode::AutoCandidates
+        } else {
+            CellMode::ManualCandidates
+        };
         let (digit_value, auto_candidates, manual_candidates, cell_mode) = match cell_state {
             CellState::Digit(digit) => (
                 DigitValueCell(Some(digit)),
@@ -24,7 +29,7 @@ impl CellValueBundle {
                 DigitValueCell(None),
                 AutoCandidates(digit_set),
                 ManualCandidates(Set::NONE),
-                CellMode::ManualCandidates,
+                cell_mode,
             ),
         };
 

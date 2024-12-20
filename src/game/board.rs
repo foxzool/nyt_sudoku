@@ -191,9 +191,9 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                 selected: false,
                                                             },
                                                         ))
-                                                        .observe(manual_candidate_cell_move)
-                                                        .observe(manual_candidate_cell_out)
-                                                        .observe(manual_candidate_cell_click);
+                                                        .observe(candidate_cell_move::<AutoCandidates, AutoCandidateCellMarker>)
+                                                        .observe(candidate_cell_out::<AutoCandidateCellMarker>)
+                                                        .observe(candidate_cell_click::<AutoCandidates, AutoCandidateCellMarker>);
                                                 }
                                             });
 
@@ -253,9 +253,9 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                 selected: false,
                                                             },
                                                         ))
-                                                        .observe(manual_candidate_cell_move)
-                                                        .observe(manual_candidate_cell_out)
-                                                        .observe(manual_candidate_cell_click);
+                                                        .observe(candidate_cell_move::<ManualCandidates, ManualCandidateCellMarker>)
+                                                        .observe(candidate_cell_out::<ManualCandidateCellMarker>)
+                                                        .observe(candidate_cell_click::<ManualCandidates, ManualCandidateCellMarker>);
                                                 }
                                             });
                                     });
@@ -369,35 +369,34 @@ fn show_preview_number(
     }
 }
 
-fn manual_candidate_cell_click(
+fn candidate_cell_click<C: CandidatesValue, M: CandidateMarker>(
     click: Trigger<Pointer<Click>>,
-    mut cell: Query<&mut ManualCandidateCellMarker>,
+     cell: Query<&M>,
     parent_query: Query<&Parent>,
-    mut q_select: Query<&mut ManualCandidates, With<SelectedCell>>,
+    mut q_select: Query<&mut C, With<SelectedCell>>,
     mut commands: Commands,
 ) {
-    let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
-    candidate_cell.selected = !candidate_cell.selected;
+    let candidate_cell = cell.get(click.entity()).unwrap();
     for ancestor in parent_query.iter_ancestors(click.entity()) {
         if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
-            cell_value.insert(Digit::new(candidate_cell.index));
+            cell_value.insert(Digit::new(candidate_cell.index()));
 
             commands.entity(click.entity()).remove::<PreviewCandidate>();
         }
     }
 }
 
-fn manual_candidate_cell_move(
+fn candidate_cell_move<C: CandidatesValue, M: CandidateMarker>(
     trigger: Trigger<Pointer<Over>>,
-    mut cell: Query<&ManualCandidateCellMarker>,
+    cell: Query<&M>,
     parent_query: Query<&Parent>,
-    mut q_select: Query<&mut ManualCandidates, With<SelectedCell>>,
+    mut q_select: Query<&mut C, With<SelectedCell>>,
     mut commands: Commands,
 ) {
     if let Ok(manual_marker) = cell.get(trigger.entity()) {
         for ancestor in parent_query.iter_ancestors(trigger.entity()) {
             if let Ok(_cell_value) = q_select.get(ancestor) {
-                if !manual_marker.selected {
+                if !manual_marker.selected() {
                     commands
                         .entity(trigger.entity())
                         .insert(PreviewCandidate::hold());
@@ -407,9 +406,9 @@ fn manual_candidate_cell_move(
     }
 }
 
-fn manual_candidate_cell_out(
+fn candidate_cell_out<M: CandidateMarker>(
     trigger: Trigger<Pointer<Out>>,
-    mut cell: Query<&ManualCandidateCellMarker>,
+    cell: Query<&M>,
     mut commands: Commands,
     parent_query: Query<&Parent>,
     q_select: Query<&CellMode, With<SelectedCell>>,
@@ -418,7 +417,7 @@ fn manual_candidate_cell_out(
         for ancestor in parent_query.iter_ancestors(trigger.entity()) {
             if let Ok(cell_mode) = q_select.get(ancestor) {
                 if *cell_mode != CellMode::Digit {
-                    if !manual_marker.selected {
+                    if !manual_marker.selected() {
                         commands
                             .entity(trigger.entity())
                             .insert(PreviewCandidate::default());

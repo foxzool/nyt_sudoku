@@ -21,10 +21,10 @@ pub(crate) fn plugin(app: &mut App) {
             show_manual_candidates,
             show_auto_candidates,
             show_preview_number,
-            move_select_cell,
         )
             .run_if(in_state(GameState::Playing)),
-    );
+    )
+    .add_observer(move_select_cell);
 }
 
 pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
@@ -541,38 +541,38 @@ fn manual_candidate_cell_out(
 }
 
 fn move_select_cell(
-    mut move_ev: EventReader<MoveSelectCell>,
+    mut move_ev: Trigger<MoveSelectCell>,
     mut commands: Commands,
     q_select: Single<(Entity, &CellPosition), With<SelectedCell>>,
     q_other: Query<(Entity, &CellPosition), Without<SelectedCell>>,
 ) {
     let (entity, cell_position) = q_select.into_inner();
-    for ev in move_ev.read() {
-        let new_position =
-            match ev {
-                MoveSelectCell::Up if cell_position.row() > 0 => Some(CellPosition::from_row_col(
-                    cell_position.row() - 1,
-                    cell_position.col(),
-                )),
-                MoveSelectCell::Down if cell_position.row() < 8 => Some(
-                    CellPosition::from_row_col(cell_position.row() + 1, cell_position.col()),
-                ),
-                MoveSelectCell::Left if cell_position.col() > 0 => Some(
-                    CellPosition::from_row_col(cell_position.row(), cell_position.col() - 1),
-                ),
-                MoveSelectCell::Right if cell_position.col() < 8 => Some(
-                    CellPosition::from_row_col(cell_position.row(), cell_position.col() + 1),
-                ),
-                _ => None,
-            };
+    let new_position = match move_ev.event() {
+        MoveSelectCell::Up if cell_position.row() > 0 => Some(CellPosition::from_row_col(
+            cell_position.row() - 1,
+            cell_position.col(),
+        )),
+        MoveSelectCell::Down if cell_position.row() < 8 => Some(CellPosition::from_row_col(
+            cell_position.row() + 1,
+            cell_position.col(),
+        )),
+        MoveSelectCell::Left if cell_position.col() > 0 => Some(CellPosition::from_row_col(
+            cell_position.row(),
+            cell_position.col() - 1,
+        )),
+        MoveSelectCell::Right if cell_position.col() < 8 => Some(CellPosition::from_row_col(
+            cell_position.row(),
+            cell_position.col() + 1,
+        )),
+        _ => None,
+    };
 
-        if let Some(new_position) = new_position {
-            commands.entity(entity).remove::<SelectedCell>();
-            for (other_entity, cell_position) in q_other.iter() {
-                if cell_position == &new_position {
-                    commands.entity(other_entity).insert(SelectedCell);
-                    break;
-                }
+    if let Some(new_position) = new_position {
+        commands.entity(entity).remove::<SelectedCell>();
+        for (other_entity, cell_position) in q_other.iter() {
+            if cell_position == &new_position {
+                commands.entity(other_entity).insert(SelectedCell);
+                break;
             }
         }
     }

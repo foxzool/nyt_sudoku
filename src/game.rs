@@ -1,3 +1,4 @@
+use crate::game::input::keyboard_move_cell;
 use crate::color::*;
 use crate::game::board::{play_board, PreviewCandidate};
 use crate::game::cell_state::{
@@ -11,7 +12,6 @@ use crate::GameState;
 use bevy::color::palettes::basic::RED;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
-use std::ops::BitOrAssign;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
@@ -42,7 +42,7 @@ impl Plugin for SudokuPlugin {
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(
                 Update,
-                (keyboard_input, show_conflict, kick_candidates)
+                (keyboard_input, keyboard_move_cell, show_conflict, kick_candidates)
                     .run_if(in_state(GameState::Playing)),
             )
             .add_observer(on_select_cell)
@@ -710,7 +710,7 @@ fn check_conflict(
         }
 
         if !conflict_list.is_empty() {
-            if let Ok((entity, _other_cell_value, other_cell_position, children)) =
+            if let Ok((entity, _other_cell_value, _other_cell_position, children)) =
                 q_cell.get(trigger.entity())
             {
                 for child in children {
@@ -739,7 +739,6 @@ fn remove_conflict(
     trigger: Trigger<RemoveDigit>,
     q_cell: Query<(&DigitValueCell, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
-    auto_mode: Res<AutoCandidateMode>,
 ) {
     let (_cell_value, cell_position, children) = q_cell.get(trigger.entity()).unwrap();
     let digit = trigger.event().0;

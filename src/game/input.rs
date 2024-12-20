@@ -74,17 +74,65 @@ pub(crate) fn keyboard_input(
             commands.trigger_targets(NewDigit::new(num), vec![*selected_cell]);
         }
     }
+}
 
+#[derive(Resource)]
+pub struct MoveTimer {
+    timer: Timer,
+}
+
+impl Default for MoveTimer {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(0.2, TimerMode::Repeating),
+        }
+    }
+}
+
+pub(crate) fn keyboard_move_cell(
+    mut commands: Commands,
+    mut keyboard_input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut timer: Local<MoveTimer>,
+) {
     if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-        commands.send_event(MoveSelectCell::Up);
+        commands.trigger(MoveSelectCell::Up);
+        return;
     }
     if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-        commands.send_event(MoveSelectCell::Down);
+        commands.trigger(MoveSelectCell::Down);
+        return;
     }
     if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
-        commands.send_event(MoveSelectCell::Left);
+        commands.trigger(MoveSelectCell::Left);
+        return;
     }
     if keyboard_input.just_pressed(KeyCode::ArrowRight) {
-        commands.send_event(MoveSelectCell::Right);
+        commands.trigger(MoveSelectCell::Right);
+        return;
+    }
+
+    if keyboard_input.any_pressed([
+        KeyCode::ArrowUp,
+        KeyCode::ArrowDown,
+        KeyCode::ArrowLeft,
+        KeyCode::ArrowRight,
+    ]) {
+        if timer.timer.tick(time.delta()).just_finished() {
+            if keyboard_input.pressed(KeyCode::ArrowUp) {
+                commands.trigger(MoveSelectCell::Up);
+            }
+            if keyboard_input.pressed(KeyCode::ArrowDown) {
+                commands.trigger(MoveSelectCell::Down);
+            }
+            if keyboard_input.pressed(KeyCode::ArrowLeft) {
+                commands.trigger(MoveSelectCell::Left);
+            }
+            if keyboard_input.pressed(KeyCode::ArrowRight) {
+                commands.trigger(MoveSelectCell::Right);
+            }
+        }
+    } else {
+        timer.timer.reset();
     }
 }

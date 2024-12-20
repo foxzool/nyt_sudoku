@@ -504,7 +504,6 @@ fn mouse_click_control_digit(
     q_cell: Query<&ControlNumber>,
     selected_cell: Single<Entity, With<SelectedCell>>,
     mut commands: Commands,
-    auto_mode: Res<AutoCandidateMode>,
     selected_tab: Res<SelectedTab>,
 ) {
     if let Ok(cell_value) = q_cell.get(trigger.entity()) {

@@ -18,6 +18,7 @@ pub(crate) fn plugin(app: &mut App) {
             show_manual_candidates,
             show_auto_candidates,
             show_preview_number,
+            change_cell_vis,
         )
             .run_if(in_state(GameState::Playing)),
     )
@@ -560,44 +561,40 @@ fn move_select_cell(
 
 fn switch_candidate_cell_mode(
     auto_mode: Res<AutoCandidateMode>,
-    mut q_manual: Query<
-        &mut Visibility,
-        (
-            With<ManualCandidatesContainer>,
-            Without<AutoCandidatesContainer>,
-        ),
-    >,
-    mut q_auto: Query<
-        &mut Visibility,
-        (
-            With<AutoCandidatesContainer>,
-            Without<ManualCandidatesContainer>,
-        ),
-    >,
     mut q_cell_mode: Query<&mut CellMode>,
 ) {
-    if **auto_mode {
-        for mut visibility in q_manual.iter_mut() {
-            *visibility = Visibility::Hidden;
-        }
-        for mut visibility in q_auto.iter_mut() {
-            *visibility = Visibility::Visible;
-        }
-        for mut cell_mode in q_cell_mode.iter_mut() {
-            if *cell_mode != CellMode::Digit {
+    for mut cell_mode in q_cell_mode.iter_mut() {
+        if *cell_mode != CellMode::Digit {
+            if **auto_mode {
                 *cell_mode = CellMode::AutoCandidates;
+            } else {
+                *cell_mode = CellMode::ManualCandidates;
             }
         }
-    } else {
-        for mut visibility in q_auto.iter_mut() {
-            *visibility = Visibility::Hidden;
-        }
-        for mut visibility in q_manual.iter_mut() {
-            *visibility = Visibility::Visible;
-        }
-        for mut cell_mode in q_cell_mode.iter_mut() {
-            if *cell_mode != CellMode::Digit {
-                *cell_mode = CellMode::ManualCandidates;
+    }
+}
+
+fn change_cell_vis(
+    q_cell: Query<(&CellMode, &Children), Changed<CellMode>>,
+    mut q_vis: Query<(
+        &mut Visibility,
+        Option<&DigitCellContainer>,
+        Option<&ManualCandidatesContainer>,
+        Option<&AutoCandidatesContainer>,
+    )>,
+) {
+    for (cell_mode, children) in q_cell.iter() {
+        for child in children.iter() {
+            if let Ok((mut visibility, opt_digit, opt_manual, opt_auto)) = q_vis.get_mut(*child) {
+                if *cell_mode == CellMode::Digit && opt_digit.is_some() {
+                    *visibility = Visibility::Visible;
+                } else if *cell_mode == CellMode::ManualCandidates && opt_manual.is_some() {
+                    *visibility = Visibility::Visible;
+                } else if *cell_mode == CellMode::AutoCandidates && opt_auto.is_some() {
+                    *visibility = Visibility::Visible;
+                } else {
+                    *visibility = Visibility::Hidden;
+                }
             }
         }
     }

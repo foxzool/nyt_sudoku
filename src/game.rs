@@ -552,9 +552,7 @@ fn on_new_candidate(
                 auto_candidates.insert(new_candidate);
             }
             CellMode::ManualCandidates => {
-                println!("manual_candidates: {:?} {:?}", manual_candidates.0, new_candidate);
                 manual_candidates.insert(new_candidate);
-                println!("manual_candidates: {:?}", manual_candidates.0);
             }
         }
     }
@@ -594,7 +592,6 @@ fn on_clean_cell(
             if let Ok(_preview) = q_preview.get(child) {
                 commands.entity(child).remove::<PreviewCandidate>();
             }
-
         }
     }
 }

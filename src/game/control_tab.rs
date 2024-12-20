@@ -23,7 +23,12 @@ pub(crate) fn plugin(app: &mut App) {
 }
 
 #[derive(Event)]
-pub struct ToggleTab;
+pub enum ToggleTab {
+    Any,
+    Previous,
+    Normal,
+    Candidate,
+}
 
 #[derive(Component)]
 pub struct ControlDigit;
@@ -32,7 +37,7 @@ pub struct ControlDigit;
 pub struct ControlCandidate;
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
-enum ControlTab {
+pub enum ControlTab {
     #[default]
     Normal,
     Candidate,
@@ -104,7 +109,7 @@ pub(crate) fn control_board(
                         ))
                         .observe(
                             |trigger: Trigger<Pointer<Click>>, mut ev: EventWriter<ToggleTab>| {
-                                ev.send(ToggleTab);
+                                ev.send(ToggleTab::Candidate);
                             },
                         );
 
@@ -136,7 +141,7 @@ pub(crate) fn control_board(
                         ))
                         .observe(
                             |trigger: Trigger<Pointer<Click>>, mut ev: EventWriter<ToggleTab>| {
-                                ev.send(ToggleTab);
+                                ev.send(ToggleTab::Normal);
                             },
                         );
                 });
@@ -406,14 +411,38 @@ fn show_number(
     }
 }
 
-fn update_control_tab(mut _ev: EventReader<ToggleTab>, mut selected_tab: ResMut<SelectedTab>) {
-    for _ev in _ev.read() {
-        match selected_tab.0 {
-            ControlTab::Normal => {
-                selected_tab.0 = ControlTab::Candidate;
+fn update_control_tab(
+    mut _ev: EventReader<ToggleTab>,
+    mut l: Local<ControlTab>,
+    mut selected_tab: ResMut<SelectedTab>,
+) {
+    for ev in _ev.read() {
+        match ev {
+            ToggleTab::Any => match selected_tab.0 {
+                ControlTab::Normal => {
+                    selected_tab.0 = ControlTab::Candidate;
+                    *l = ControlTab::Normal;
+                }
+                ControlTab::Candidate => {
+                    selected_tab.0 = ControlTab::Normal;
+                    *l = ControlTab::Candidate;
+                }
+            },
+            ToggleTab::Previous => match selected_tab.0 {
+                ControlTab::Normal => {
+                    selected_tab.0 = ControlTab::Candidate;
+                }
+                ControlTab::Candidate => {
+                    selected_tab.0 = ControlTab::Normal;
+                }
             }
-            ControlTab::Candidate => {
+            ToggleTab::Normal => {
                 selected_tab.0 = ControlTab::Normal;
+                *l = ControlTab::Candidate;
+            }
+            ToggleTab::Candidate => {
+                selected_tab.0 = ControlTab::Candidate;
+                *l = ControlTab::Normal;
             }
         }
     }

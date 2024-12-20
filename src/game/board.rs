@@ -1,10 +1,12 @@
 use crate::color::*;
+use crate::game::cell_state::{
+    AutoCandidateCellMarker, CandidateMarker, CandidatesValue, ManualCandidateCellMarker,
+};
 use crate::game::cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates};
 use crate::game::position::CellPosition;
 use crate::game::{
-    AutoCandidateCellMarker, AutoCandidateMode, AutoCandidatesContainer, ConflictCount,
-    DigitCellContainer, ManualCandidateCellMarker, ManualCandidatesContainer, MoveSelectCell,
-    SelectedCell,
+    AutoCandidateMode, AutoCandidatesContainer, ConflictCount, DigitCellContainer,
+    ManualCandidatesContainer, MoveSelectCell, SelectedCell,
 };
 use crate::GameState;
 use bevy::prelude::*;
@@ -15,8 +17,8 @@ pub(crate) fn plugin(app: &mut App) {
         Update,
         (
             show_digit_cell,
-            show_manual_candidates,
-            show_auto_candidates,
+            show_candidates::<AutoCandidates, AutoCandidateCellMarker>,
+            show_candidates::<ManualCandidates, ManualCandidateCellMarker>,
             show_preview_number,
             change_cell_vis,
         )
@@ -182,8 +184,8 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                 },
                                                                 ..default()
                                                             },
-                                                            // Visibility::Hidden,
-                                                            // BackgroundColor(Color::WHITE),
+                                                            Visibility::Inherited,
+                                                            // BackgroundColor(RED.into()),
                                                             AutoCandidateCellMarker {
                                                                 index: i,
                                                                 selected: false,
@@ -244,8 +246,8 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                 },
                                                                 ..default()
                                                             },
-                                                            // Visibility::Hidden,
-                                                            // BackgroundColor(Color::WHITE),
+                                                            Visibility::Inherited,
+                                                            // BackgroundColor(YELLOW.into()),
                                                             ManualCandidateCellMarker {
                                                                 index: i,
                                                                 selected: false,
@@ -321,57 +323,23 @@ fn show_digit_cell(
     }
 }
 
-fn show_manual_candidates(
-    q_cell: Query<(Entity, &ManualCandidates, &CellMode)>,
+fn show_candidates<C: CandidatesValue, M: CandidateMarker>(
+    q_cell: Query<(Entity, &C, &CellMode)>,
     children: Query<&Children>,
-    mut candidate_cell: Query<(&mut TextColor, &mut ManualCandidateCellMarker)>,
-    auto_mode: Res<AutoCandidateMode>,
+    mut candidate_cell: Query<(&mut TextColor, &mut M)>,
 ) {
     for (entity, manual_candidates, cell_mode) in q_cell.iter() {
-        if **auto_mode {
-            continue;
-        }
         for child in children.iter_descendants(entity) {
             if let Ok((mut text_color, mut cell_marker)) = candidate_cell.get_mut(child) {
-                if let CellMode::ManualCandidates = cell_mode {
-                    if manual_candidates
-                        .0
-                        .contains(Digit::new(cell_marker.index).as_set())
-                    {
-                        cell_marker.selected = true;
-                        *text_color = TextColor(*GRAY2);
-                    } else {
-                        cell_marker.selected = false;
-                        *text_color = TextColor(TRANSPARENT);
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn show_auto_candidates(
-    q_cell: Query<(Entity, &AutoCandidates, &CellMode)>,
-    children: Query<&Children>,
-    mut candidate_cell: Query<(&mut TextColor, &mut AutoCandidateCellMarker)>,
-    auto_mode: Res<AutoCandidateMode>,
-) {
-    for (entity, auto_candidates, cell_mode) in q_cell.iter() {
-        if **auto_mode {
-            for child in children.iter_descendants(entity) {
-                if let Ok((mut text_color, mut cell_marker)) = candidate_cell.get_mut(child) {
-                    if let CellMode::AutoCandidates = cell_mode {
-                        if auto_candidates
-                            .0
-                            .contains(Digit::new(cell_marker.index).as_set())
-                        {
-                            cell_marker.selected = true;
-                            *text_color = TextColor(*GRAY2);
-                        } else {
-                            cell_marker.selected = false;
-                            *text_color = TextColor(TRANSPARENT);
-                        }
-                    }
+                if manual_candidates
+                    .candidates()
+                    .contains(Digit::new(cell_marker.index()).as_set())
+                {
+                    cell_marker.set_selected(true);
+                    *text_color = TextColor(*GRAY2);
+                } else {
+                    cell_marker.set_selected(false);
+                    *text_color = TextColor(TRANSPARENT);
                 }
             }
         }
@@ -442,66 +410,6 @@ fn manual_candidate_cell_move(
 fn manual_candidate_cell_out(
     trigger: Trigger<Pointer<Out>>,
     mut cell: Query<&ManualCandidateCellMarker>,
-    mut commands: Commands,
-    parent_query: Query<&Parent>,
-    q_select: Query<&CellMode, With<SelectedCell>>,
-) {
-    if let Ok(manual_marker) = cell.get(trigger.entity()) {
-        for ancestor in parent_query.iter_ancestors(trigger.entity()) {
-            if let Ok(cell_mode) = q_select.get(ancestor) {
-                if *cell_mode != CellMode::Digit {
-                    if !manual_marker.selected {
-                        commands
-                            .entity(trigger.entity())
-                            .insert(PreviewCandidate::default());
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn auto_candidate_cell_click(
-    click: Trigger<Pointer<Click>>,
-    mut cell: Query<&mut AutoCandidateCellMarker>,
-    parent_query: Query<&Parent>,
-    mut q_select: Query<&mut AutoCandidates, With<SelectedCell>>,
-    mut commands: Commands,
-) {
-    let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
-    candidate_cell.selected = !candidate_cell.selected;
-    for ancestor in parent_query.iter_ancestors(click.entity()) {
-        if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
-            cell_value.insert(Digit::new(candidate_cell.index));
-
-            commands.entity(click.entity()).remove::<PreviewCandidate>();
-        }
-    }
-}
-
-fn auto_candidate_cell_move(
-    trigger: Trigger<Pointer<Over>>,
-    mut cell: Query<&AutoCandidateCellMarker>,
-    parent_query: Query<&Parent>,
-    mut q_select: Query<&mut AutoCandidates, With<SelectedCell>>,
-    mut commands: Commands,
-) {
-    if let Ok(manual_marker) = cell.get(trigger.entity()) {
-        for ancestor in parent_query.iter_ancestors(trigger.entity()) {
-            if let Ok(_cell_value) = q_select.get(ancestor) {
-                if !manual_marker.selected {
-                    commands
-                        .entity(trigger.entity())
-                        .insert(PreviewCandidate::hold());
-                }
-            }
-        }
-    }
-}
-
-fn auto_candidate_cell_out(
-    trigger: Trigger<Pointer<Out>>,
-    mut cell: Query<&AutoCandidateCellMarker>,
     mut commands: Commands,
     parent_query: Query<&Parent>,
     q_select: Query<&CellMode, With<SelectedCell>>,

@@ -1,3 +1,4 @@
+use crate::game::cell_state::CandidatesValue;
 use crate::color::*;
 use crate::game::board::{play_board, PreviewCandidate};
 use crate::game::cell_state::{
@@ -415,23 +416,11 @@ pub enum MoveSelectCell {
     Right,
 }
 
-/// 数字格子
+/// 数字格子容器
 #[derive(Component)]
 pub struct DigitCellContainer;
 
-/// 自动选择的候选数字
-#[derive(Component, Debug)]
-pub struct AutoCandidateCellMarker {
-    pub index: u8,
-    pub selected: bool,
-}
 
-/// 手动选择的候选数字
-#[derive(Component, Debug)]
-pub struct ManualCandidateCellMarker {
-    pub index: u8,
-    pub selected: bool,
-}
 
 /// 冲突红点
 #[derive(Component, Default, Deref, DerefMut)]

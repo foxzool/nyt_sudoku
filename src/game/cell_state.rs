@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use std::ops::{BitOrAssign, BitXorAssign};
+use std::ops::{BitOrAssign, BitXorAssign, Deref};
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 
@@ -47,20 +47,35 @@ pub struct DigitValueCell(pub Option<Digit>);
 
 #[derive(Component, Debug)]
 pub struct AutoCandidates(pub Set<Digit>);
-
-impl AutoCandidates {
-    pub fn insert(&mut self, digit: Digit) {
-        self.0.bitxor_assign(digit);
+impl CandidatesValue for AutoCandidates {
+    fn candidates_mut(&mut self) -> &mut Set<Digit> {
+        &mut self.0
+    }
+    fn candidates(&self) -> &Set<Digit> {
+        &self.0
     }
 }
 
 #[derive(Component, Debug)]
 pub struct ManualCandidates(pub Set<Digit>);
 
-impl ManualCandidates {
-    pub fn insert(&mut self, digit: Digit) {
-        self.0.bitxor_assign(digit);
+impl CandidatesValue for ManualCandidates {
+    fn candidates_mut(&mut self) -> &mut Set<Digit> {
+        &mut self.0
     }
+
+    fn candidates(&self) -> &Set<Digit> {
+        &self.0
+    }
+}
+
+pub trait CandidatesValue: Component {
+    fn insert(&mut self, digit: Digit) {
+        self.candidates_mut().bitxor_assign(digit);
+    }
+
+    fn candidates_mut(&mut self) -> &mut Set<Digit>;
+    fn candidates(&self) -> &Set<Digit>;
 }
 
 #[derive(Component, Debug, PartialEq, Eq)]
@@ -169,3 +184,53 @@ impl CellValue {
 /// 固定的格子， 不能修改
 #[derive(Component)]
 pub struct FixedCell;
+
+
+/// 手动候选数字
+#[derive(Component, Debug)]
+pub struct ManualCandidateCellMarker {
+    pub index: u8,
+    pub selected: bool,
+}
+
+impl CandidateMarker for ManualCandidateCellMarker {
+    fn index(&self) -> u8 {
+        self.index
+    }
+
+    fn selected(&self) -> bool {
+        self.selected
+    }
+
+    fn set_selected(&mut self, selected: bool) {
+        self.selected = selected;
+    }
+}
+
+/// 自动候选数字
+#[derive(Component, Debug)]
+pub struct AutoCandidateCellMarker {
+    pub index: u8,
+    pub selected: bool,
+}
+
+impl CandidateMarker for AutoCandidateCellMarker {
+    fn index(&self) -> u8 {
+        self.index
+    }
+
+    fn selected(&self) -> bool {
+        self.selected
+    }
+
+    fn set_selected(&mut self, selected: bool) {
+        self.selected = selected;
+    }
+}
+
+pub trait CandidateMarker: Component {
+    fn index(&self) -> u8;
+    fn selected(&self) -> bool;
+
+    fn set_selected(&mut self, selected: bool);
+}

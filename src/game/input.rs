@@ -17,16 +17,16 @@ pub(crate) fn keyboard_input(
     }
 
     if keyboard_input.just_pressed(KeyCode::Space) {
-        commands.send_event(ToggleTab::Any);
+        commands.trigger(ToggleTab);
         return;
     }
     if keyboard_input.any_just_pressed([KeyCode::AltLeft, KeyCode::AltRight]) {
-        commands.send_event(ToggleTab::Any);
+        commands.trigger(ToggleTab);
         return;
     }
 
     if keyboard_input.any_just_released([KeyCode::AltLeft, KeyCode::AltRight]) {
-        commands.send_event(ToggleTab::Any);
+        commands.trigger(ToggleTab);
         return;
     }
 

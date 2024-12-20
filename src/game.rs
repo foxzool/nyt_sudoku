@@ -436,9 +436,13 @@ pub struct ManualCandidateCellMarker {
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ConflictCount(HashSet<Entity>);
 
-/// 候选格子
+/// 手动候选格子容器
 #[derive(Component)]
-pub struct CandidatesContainer;
+pub struct ManualCandidatesContainer;
+
+/// 自动候选格子容器
+#[derive(Component)]
+pub struct AutoCandidatesContainer;
 
 /// 候选数字格子索引，从1到9
 #[derive(Component, Debug)]

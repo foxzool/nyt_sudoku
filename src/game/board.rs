@@ -1,17 +1,14 @@
 use crate::color::*;
-use crate::game::cell_state::{
-    AutoCandidates, CellMode, CellValue, DigitValueCell, FixedCell, ManualCandidates,
-};
+use crate::game::cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates};
 use crate::game::position::CellPosition;
 use crate::game::{
-    AutoCandidateCellMarker, AutoCandidateMode, CandidateCell, CandidatesContainer, CellGrid,
-    ConflictCount, DigitCellMarker, ManualCandidateCellMarker, MoveSelectCell, SelectedCell,
+    AutoCandidateCellMarker, AutoCandidateMode, AutoCandidatesContainer, CellGrid, ConflictCount,
+    DigitCellMarker, ManualCandidateCellMarker, ManualCandidatesContainer, MoveSelectCell,
+    SelectedCell,
 };
 use crate::GameState;
 use bevy::prelude::*;
-use bevy::utils::info;
-use std::ops::{BitOrAssign, BitXorAssign};
-use sudoku::board::{CellState, Digit};
+use sudoku::board::Digit;
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_systems(
@@ -23,6 +20,10 @@ pub(crate) fn plugin(app: &mut App) {
             show_preview_number,
         )
             .run_if(in_state(GameState::Playing)),
+    )
+    .add_systems(
+        Update,
+        switch_candidate_cell_mode.run_if(resource_changed::<AutoCandidateMode>),
     )
     .add_observer(move_select_cell);
 }
@@ -139,10 +140,10 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                 )
                                                 );
 
-                                                // 候选格子容器
+                                                // 自动候选格子容器
                                                 builder
                                                     .spawn((
-                                                        // Visibility::Hidden,
+                                                        Visibility::Hidden,
                                                         Node {
                                                             height: Val::Percent(100.0),
                                                             display: Display::Grid,
@@ -157,7 +158,7 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                             // column_gap: Val::Px(4.0),
                                                             ..default()
                                                         },
-                                                        CandidatesContainer,
+                                                        AutoCandidatesContainer,
                                                     ))
                                                     .with_children(|builder| {
                                                         // 9个候选数字格子
@@ -199,7 +200,30 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                                                                 .observe(manual_candidate_cell_out)
                                                                 .observe(manual_candidate_cell_click);
                                                         }
+                                                    });
 
+                                                // 手动候选格子容器
+                                                builder
+                                                    .spawn((
+                                                        Visibility::Hidden,
+                                                        Node {
+                                                            height: Val::Percent(100.0),
+                                                            display: Display::Grid,
+                                                            aspect_ratio: Some(1.0),
+                                                            position_type: PositionType::Absolute,
+                                                            grid_template_columns:
+                                                            RepeatedGridTrack::flex(3, 1.0),
+                                                            grid_template_rows: RepeatedGridTrack::flex(
+                                                                3, 1.0,
+                                                            ),
+                                                            // row_gap: Val::Px(4.0),
+                                                            // column_gap: Val::Px(4.0),
+                                                            ..default()
+                                                        },
+                                                        ManualCandidatesContainer,
+                                                    ))
+                                                    .with_children(|builder| {
+                                                        // 9个候选数字格子
                                                         for i in 1..=9u8 {
                                                             builder
                                                                 .spawn((
@@ -310,8 +334,12 @@ fn show_manual_candidates(
     q_cell: Query<(Entity, &ManualCandidates, &CellMode)>,
     children: Query<&Children>,
     mut candidate_cell: Query<(&mut TextColor, &mut ManualCandidateCellMarker)>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     for (entity, manual_candidates, cell_mode) in q_cell.iter() {
+        if **auto_mode {
+            continue;
+        }
         for child in children.iter_descendants(entity) {
             if let Ok((mut text_color, mut cell_marker)) = candidate_cell.get_mut(child) {
                 if let CellMode::ManualCandidates = cell_mode {
@@ -325,8 +353,6 @@ fn show_manual_candidates(
                         cell_marker.selected = false;
                         *text_color = TextColor(TRANSPARENT);
                     }
-                } else {
-                    *text_color = TextColor(TRANSPARENT);
                 }
             }
         }
@@ -337,23 +363,24 @@ fn show_auto_candidates(
     q_cell: Query<(Entity, &AutoCandidates, &CellMode)>,
     children: Query<&Children>,
     mut candidate_cell: Query<(&mut TextColor, &mut AutoCandidateCellMarker)>,
+    auto_mode: Res<AutoCandidateMode>,
 ) {
     for (entity, auto_candidates, cell_mode) in q_cell.iter() {
-        for child in children.iter_descendants(entity) {
-            if let Ok((mut text_color, mut cell_marker)) = candidate_cell.get_mut(child) {
-                if let CellMode::AutoCandidates = cell_mode {
-                    if auto_candidates
-                        .0
-                        .contains(Digit::new(cell_marker.index).as_set())
-                    {
-                        cell_marker.selected = true;
-                        *text_color = TextColor(*GRAY2);
-                    } else {
-                        cell_marker.selected = false;
-                        *text_color = TextColor(TRANSPARENT);
+        if **auto_mode {
+            for child in children.iter_descendants(entity) {
+                if let Ok((mut text_color, mut cell_marker)) = candidate_cell.get_mut(child) {
+                    if let CellMode::AutoCandidates = cell_mode {
+                        if auto_candidates
+                            .0
+                            .contains(Digit::new(cell_marker.index).as_set())
+                        {
+                            cell_marker.selected = true;
+                            *text_color = TextColor(*GRAY2);
+                        } else {
+                            cell_marker.selected = false;
+                            *text_color = TextColor(TRANSPARENT);
+                        }
                     }
-                } else {
-                    *text_color = TextColor(TRANSPARENT);
                 }
             }
         }
@@ -379,103 +406,6 @@ fn show_preview_number(
         if preview.timer.just_finished() {
             commands.entity(entity).remove::<PreviewCandidate>();
             *text_color = TextColor(TRANSPARENT)
-        }
-    }
-}
-
-fn update_cell_number(
-    cell: Query<(&CellValue, &Children, Option<&FixedCell>, &CellPosition)>,
-    auto_mode: Res<AutoCandidateMode>,
-    mut digit_cell: Query<
-        (&mut Text, &mut Visibility),
-        (With<DigitCellMarker>, Without<CandidatesContainer>),
-    >,
-    mut candidates_container: Query<
-        (&mut Visibility, &Children),
-        (With<CandidatesContainer>, Without<DigitCellMarker>),
-    >,
-    mut candidate_cell: Query<
-        (
-            &mut TextColor,
-            &mut CandidateCell,
-            Option<&mut PreviewCandidate>,
-        ),
-        (Without<DigitCellMarker>, Without<CandidatesContainer>),
-    >,
-    time: Res<Time>,
-    mut commands: Commands,
-) {
-    for (cell_value, children, opt_fixed, cell_position) in cell.iter() {
-        for child in children.iter() {
-            if let Ok((_text, mut visibility)) = digit_cell.get_mut(*child) {
-                *visibility = Visibility::Hidden;
-            }
-            if let Ok((mut visibility, _children)) = candidates_container.get_mut(*child) {
-                *visibility = Visibility::Hidden;
-            }
-            match cell_value.current(**auto_mode) {
-                CellState::Digit(digit) => {
-                    if let Ok((mut text, mut visibility)) = digit_cell.get_mut(*child) {
-                        debug!("cell {} change to digit {}", cell_position, digit.get());
-                        text.0 = digit.get().to_string();
-                        *visibility = Visibility::Visible;
-                    }
-                }
-                CellState::Candidates(candidates) => {
-                    if opt_fixed.is_some() {
-                        continue;
-                    }
-
-                    debug!(
-                        "cell {} change to candidates {:?}",
-                        cell_position,
-                        candidates.into_iter().collect::<Vec<_>>()
-                    );
-
-                    if let Ok((mut visibility, children)) = candidates_container.get_mut(*child) {
-                        *visibility = Visibility::Visible;
-
-                        for child in children {
-                            if let Ok((mut text_color, mut cell, opt_preview)) =
-                                candidate_cell.get_mut(*child)
-                            {
-                                if candidates.contains(Digit::new(cell.index).as_set()) {
-                                    if **auto_mode {
-                                        cell.auto_candidate_selected = true;
-                                        cell.manual_candidate_selected = false;
-                                    } else {
-                                        cell.manual_candidate_selected = true;
-                                        cell.auto_candidate_selected = false;
-                                    }
-
-                                    *text_color = TextColor(*GRAY);
-                                }
-                                // 处理预览候选数字
-                                else if let Some(mut preview) = opt_preview {
-                                    *text_color = TextColor(*LIGHTER_GRAY);
-                                    if !preview.hold {
-                                        preview.timer.tick(time.delta());
-                                        let alpha = 1.5 - preview.timer.elapsed_secs();
-                                        text_color.0.set_alpha(alpha);
-
-                                        if preview.timer.just_finished() {
-                                            commands.entity(*child).remove::<PreviewCandidate>();
-                                            *text_color = TextColor(TRANSPARENT)
-                                        }
-                                    }
-                                } else {
-                                    if **auto_mode {
-                                        cell.auto_candidate_selected = false;
-                                    } else {
-                                        cell.manual_candidate_selected = false;
-                                    }
-                                    *text_color = TextColor(Color::srgba_u8(18, 18, 18, 0));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -540,6 +470,67 @@ fn manual_candidate_cell_out(
     }
 }
 
+
+fn auto_candidate_cell_click(
+    click: Trigger<Pointer<Click>>,
+    mut cell: Query<&mut AutoCandidateCellMarker>,
+    parent_query: Query<&Parent>,
+    mut q_select: Query<&mut AutoCandidates, With<SelectedCell>>,
+    mut commands: Commands,
+) {
+    let mut candidate_cell = cell.get_mut(click.entity()).unwrap();
+    candidate_cell.selected = !candidate_cell.selected;
+    for ancestor in parent_query.iter_ancestors(click.entity()) {
+        if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
+            cell_value.insert(Digit::new(candidate_cell.index));
+
+            commands.entity(click.entity()).remove::<PreviewCandidate>();
+        }
+    }
+}
+
+fn auto_candidate_cell_move(
+    trigger: Trigger<Pointer<Over>>,
+    mut cell: Query<&AutoCandidateCellMarker>,
+    parent_query: Query<&Parent>,
+    mut q_select: Query<&mut AutoCandidates, With<SelectedCell>>,
+    mut commands: Commands,
+) {
+    if let Ok(manual_marker) = cell.get(trigger.entity()) {
+        for ancestor in parent_query.iter_ancestors(trigger.entity()) {
+            if let Ok(_cell_value) = q_select.get(ancestor) {
+                if !manual_marker.selected {
+                    commands
+                        .entity(trigger.entity())
+                        .insert(PreviewCandidate::hold());
+                }
+            }
+        }
+    }
+}
+
+fn auto_candidate_cell_out(
+    trigger: Trigger<Pointer<Out>>,
+    mut cell: Query<&AutoCandidateCellMarker>,
+    mut commands: Commands,
+    parent_query: Query<&Parent>,
+    q_select: Query<&CellMode, With<SelectedCell>>,
+) {
+    if let Ok(manual_marker) = cell.get(trigger.entity()) {
+        for ancestor in parent_query.iter_ancestors(trigger.entity()) {
+            if let Ok(cell_mode) = q_select.get(ancestor) {
+                if *cell_mode != CellMode::Digit {
+                    if !manual_marker.selected {
+                        commands
+                            .entity(trigger.entity())
+                            .insert(PreviewCandidate::default());
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn move_select_cell(
     mut move_ev: Trigger<MoveSelectCell>,
     mut commands: Commands,
@@ -573,6 +564,51 @@ fn move_select_cell(
             if cell_position == &new_position {
                 commands.entity(other_entity).insert(SelectedCell);
                 break;
+            }
+        }
+    }
+}
+
+fn switch_candidate_cell_mode(
+    auto_mode: Res<AutoCandidateMode>,
+    mut q_manual: Query<
+        &mut Visibility,
+        (
+            With<ManualCandidatesContainer>,
+            Without<AutoCandidatesContainer>,
+        ),
+    >,
+    mut q_auto: Query<
+        &mut Visibility,
+        (
+            With<AutoCandidatesContainer>,
+            Without<ManualCandidatesContainer>,
+        ),
+    >,
+    mut q_cell_mode: Query<&mut CellMode>
+) {
+    if **auto_mode {
+        for mut visibility in q_manual.iter_mut() {
+            *visibility = Visibility::Hidden;
+        }
+        for mut visibility in q_auto.iter_mut() {
+            *visibility = Visibility::Visible;
+        }
+        for mut cell_mode in q_cell_mode.iter_mut() {
+            if *cell_mode != CellMode::Digit {
+                *cell_mode = CellMode::AutoCandidates;
+            }
+        }
+    } else {
+        for mut visibility in q_auto.iter_mut() {
+            *visibility = Visibility::Hidden;
+        }
+        for mut visibility in q_manual.iter_mut() {
+            *visibility = Visibility::Visible;
+        }
+        for mut cell_mode in q_cell_mode.iter_mut() {
+            if *cell_mode != CellMode::Digit {
+                *cell_mode = CellMode::ManualCandidates;
             }
         }
     }

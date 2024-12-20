@@ -61,7 +61,6 @@ impl ManualCandidates {
     pub fn insert(&mut self, digit: Digit) {
         self.0.bitxor_assign(digit);
     }
-
 }
 
 #[derive(Component, Debug, PartialEq, Eq)]

@@ -1,4 +1,3 @@
-use crate::game::input::keyboard_move_cell;
 use crate::color::*;
 use crate::game::board::{play_board, PreviewCandidate};
 use crate::game::cell_state::{
@@ -7,6 +6,7 @@ use crate::game::cell_state::{
 };
 use crate::game::control_tab::control_board;
 use crate::game::input::keyboard_input;
+use crate::game::input::keyboard_move_cell;
 use crate::game::position::CellPosition;
 use crate::GameState;
 use bevy::color::palettes::basic::RED;
@@ -42,7 +42,12 @@ impl Plugin for SudokuPlugin {
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(
                 Update,
-                (keyboard_input, keyboard_move_cell, show_conflict, kick_candidates)
+                (
+                    keyboard_input,
+                    keyboard_move_cell,
+                    show_conflict,
+                    kick_candidates,
+                )
                     .run_if(in_state(GameState::Playing)),
             )
             .add_observer(on_select_cell)
@@ -410,13 +415,9 @@ pub enum MoveSelectCell {
     Right,
 }
 
-/// 格子背景索引
-#[derive(Component)]
-pub struct CellGrid;
-
 /// 数字格子
 #[derive(Component)]
-pub struct DigitCellMarker;
+pub struct DigitCellContainer;
 
 /// 自动选择的候选数字
 #[derive(Component, Debug)]

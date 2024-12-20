@@ -2,8 +2,8 @@ use crate::color::*;
 use crate::game::cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates};
 use crate::game::position::CellPosition;
 use crate::game::{
-    AutoCandidateCellMarker, AutoCandidateMode, AutoCandidatesContainer, CellGrid, ConflictCount,
-    DigitCellMarker, ManualCandidateCellMarker, ManualCandidatesContainer, MoveSelectCell,
+    AutoCandidateCellMarker, AutoCandidateMode, AutoCandidatesContainer, ConflictCount,
+    DigitCellContainer, ManualCandidateCellMarker, ManualCandidatesContainer, MoveSelectCell,
     SelectedCell,
 };
 use crate::GameState;
@@ -79,192 +79,182 @@ pub(crate) fn play_board(asset_server: &Res<AssetServer>, builder: &mut ChildBui
                             for bi in 0..9 {
                                 let cell = block_index * 9 + bi;
                                 builder
-                                    .spawn((Node {
-                                        display: Display::Grid,
-                                        ..default()
-                                    },))
+                                    .spawn((
+                                        Node {
+                                            display: Display::Grid,
+                                            align_items: AlignItems::Center,
+                                            justify_items: JustifyItems::Center,
+                                            align_content: AlignContent::Center,
+                                            justify_content: JustifyContent::Center,
+                                            ..default()
+                                        },
+                                        CellPosition::from_block_row_col(block_index, bi),
+                                        BackgroundColor(Color::WHITE),))
+                                    .observe(on_click_cell)
                                     .with_children(|builder| {
-                                        // 格子
-                                        builder
-                                            .spawn((
-                                                CellPosition::from_block_row_col(block_index, bi),
-                                                Node {
-                                                    align_items: AlignItems::Center,
-                                                    justify_items: JustifyItems::Center,
-                                                    align_content: AlignContent::Center,
-                                                    justify_content: JustifyContent::Center,
+                                        // 数字格子
+                                        builder.spawn((
+                                            Text::new(cell.to_string()),
+                                            TextFont {
+                                                font: asset_server.load("fonts/franklin-normal-800.ttf"),
+                                                font_size: 48.0,
+                                                ..default()
+                                            },
+                                            TextColor(Color::srgb_u8(18, 18, 18)),
+                                            Visibility::Hidden,
+                                            Node {
+                                                margin: UiRect {
+                                                    bottom: Val::Px(1.0),
                                                     ..default()
                                                 },
-                                                BackgroundColor(Color::WHITE),
-                                                CellGrid,
+                                                ..default()
+                                            },
+                                            DigitCellContainer,
+                                        ));
+
+                                        // 冲突计数器
+                                        builder.spawn((
+                                            ImageNode {
+                                                image: asset_server.load("textures/circle.png"),
+                                                color: Color::srgb_u8(255, 75, 86),
+                                                ..default()
+                                            },
+                                            Visibility::Hidden,
+                                            Node {
+                                                position_type: PositionType::Absolute,
+                                                right: Val::Px(7.0),
+                                                bottom: Val::Px(7.0),
+                                                width: Val::Px(14.0),
+                                                height: Val::Px(14.0),
+                                                ..default()
+                                            },
+                                            ConflictCount::default()
+                                        )
+                                        );
+
+                                        // 自动候选格子容器
+                                        builder
+                                            .spawn((
+                                                Visibility::Hidden,
+                                                Node {
+                                                    height: Val::Percent(100.0),
+                                                    display: Display::Grid,
+                                                    aspect_ratio: Some(1.0),
+                                                    position_type: PositionType::Absolute,
+                                                    grid_template_columns:
+                                                    RepeatedGridTrack::flex(3, 1.0),
+                                                    grid_template_rows: RepeatedGridTrack::flex(
+                                                        3, 1.0,
+                                                    ),
+                                                    // row_gap: Val::Px(4.0),
+                                                    // column_gap: Val::Px(4.0),
+                                                    ..default()
+                                                },
+                                                AutoCandidatesContainer,
                                             ))
-                                            .observe(on_click_cell)
                                             .with_children(|builder| {
-                                                // 数字格子
-                                                builder.spawn((
-                                                    Text::new(cell.to_string()),
-                                                    TextFont {
-                                                        font: asset_server.load("fonts/franklin-normal-800.ttf"),
-                                                        font_size: 48.0,
-                                                        ..default()
-                                                    },
-                                                    TextColor(Color::srgb_u8(18, 18, 18)),
-                                                    Visibility::Hidden,
-                                                    Node {
-                                                        margin: UiRect {
-                                                            bottom: Val::Px(1.0),
-                                                            ..default()
-                                                        },
-                                                        ..default()
-                                                    },
-                                                    DigitCellMarker,
-                                                ));
-
-                                                // 冲突计数器
-                                                builder.spawn((
-                                                    ImageNode {
-                                                        image: asset_server.load("textures/circle.png"),
-                                                        color: Color::srgb_u8(255, 75, 86),
-                                                        ..default()
-                                                    },
-                                                    Visibility::Hidden,
-                                                    Node {
-                                                        position_type: PositionType::Absolute,
-                                                        right: Val::Px(7.0),
-                                                        bottom: Val::Px(7.0),
-                                                        width: Val::Px(14.0),
-                                                        height: Val::Px(14.0),
-                                                        ..default()
-                                                    },
-                                                    ConflictCount::default()
-                                                )
-                                                );
-
-                                                // 自动候选格子容器
-                                                builder
-                                                    .spawn((
-                                                        Visibility::Hidden,
-                                                        Node {
-                                                            height: Val::Percent(100.0),
-                                                            display: Display::Grid,
-                                                            aspect_ratio: Some(1.0),
-                                                            position_type: PositionType::Absolute,
-                                                            grid_template_columns:
-                                                            RepeatedGridTrack::flex(3, 1.0),
-                                                            grid_template_rows: RepeatedGridTrack::flex(
-                                                                3, 1.0,
+                                                // 9个候选数字格子
+                                                for i in 1..=9u8 {
+                                                    builder
+                                                        .spawn((
+                                                            Text::new(i.to_string()),
+                                                            TextFont {
+                                                                font: asset_server.load("fonts/franklin-normal-700.ttf"),
+                                                                font_size: 16.0,
+                                                                ..default()
+                                                            },
+                                                            TextColor(TRANSPARENT),
+                                                            TextLayout::new_with_justify(
+                                                                JustifyText::Center,
                                                             ),
-                                                            // row_gap: Val::Px(4.0),
-                                                            // column_gap: Val::Px(4.0),
-                                                            ..default()
-                                                        },
-                                                        AutoCandidatesContainer,
-                                                    ))
-                                                    .with_children(|builder| {
-                                                        // 9个候选数字格子
-                                                        for i in 1..=9u8 {
-                                                            builder
-                                                                .spawn((
-                                                                    Text::new(i.to_string()),
-                                                                    TextFont {
-                                                                        font: asset_server.load("fonts/franklin-normal-700.ttf"),
-                                                                        font_size: 16.0,
-                                                                        ..default()
-                                                                    },
-                                                                    TextColor(TRANSPARENT),
-                                                                    TextLayout::new_with_justify(
-                                                                        JustifyText::Center,
-                                                                    ),
-                                                                    Node {
-                                                                        align_items: AlignItems::Center,
-                                                                        justify_items:
-                                                                        JustifyItems::Center,
-                                                                        align_content:
-                                                                        AlignContent::Center,
-                                                                        justify_content:
-                                                                        JustifyContent::Center,
-                                                                        margin: UiRect {
-                                                                            top: Val::Px(4.),
-                                                                            ..default()
-                                                                        },
-                                                                        ..default()
-                                                                    },
-                                                                    // Visibility::Hidden,
-                                                                    // BackgroundColor(Color::WHITE),
-                                                                    AutoCandidateCellMarker {
-                                                                        index: i,
-                                                                        selected: false,
-                                                                    },
-                                                                ))
-                                                                .observe(manual_candidate_cell_move)
-                                                                .observe(manual_candidate_cell_out)
-                                                                .observe(manual_candidate_cell_click);
-                                                        }
-                                                    });
-
-                                                // 手动候选格子容器
-                                                builder
-                                                    .spawn((
-                                                        Visibility::Hidden,
-                                                        Node {
-                                                            height: Val::Percent(100.0),
-                                                            display: Display::Grid,
-                                                            aspect_ratio: Some(1.0),
-                                                            position_type: PositionType::Absolute,
-                                                            grid_template_columns:
-                                                            RepeatedGridTrack::flex(3, 1.0),
-                                                            grid_template_rows: RepeatedGridTrack::flex(
-                                                                3, 1.0,
-                                                            ),
-                                                            // row_gap: Val::Px(4.0),
-                                                            // column_gap: Val::Px(4.0),
-                                                            ..default()
-                                                        },
-                                                        ManualCandidatesContainer,
-                                                    ))
-                                                    .with_children(|builder| {
-                                                        // 9个候选数字格子
-                                                        for i in 1..=9u8 {
-                                                            builder
-                                                                .spawn((
-                                                                    Text::new(i.to_string()),
-                                                                    TextFont {
-                                                                        font: asset_server.load("fonts/franklin-normal-700.ttf"),
-                                                                        font_size: 16.0,
-                                                                        ..default()
-                                                                    },
-                                                                    TextColor(TRANSPARENT),
-                                                                    TextLayout::new_with_justify(
-                                                                        JustifyText::Center,
-                                                                    ),
-                                                                    Node {
-                                                                        align_items: AlignItems::Center,
-                                                                        justify_items:
-                                                                        JustifyItems::Center,
-                                                                        align_content:
-                                                                        AlignContent::Center,
-                                                                        justify_content:
-                                                                        JustifyContent::Center,
-                                                                        margin: UiRect {
-                                                                            top: Val::Px(4.),
-                                                                            ..default()
-                                                                        },
-                                                                        ..default()
-                                                                    },
-                                                                    // Visibility::Hidden,
-                                                                    // BackgroundColor(Color::WHITE),
-                                                                    ManualCandidateCellMarker {
-                                                                        index: i,
-                                                                        selected: false,
-                                                                    },
-                                                                ))
-                                                                .observe(manual_candidate_cell_move)
-                                                                .observe(manual_candidate_cell_out)
-                                                                .observe(manual_candidate_cell_click);
-                                                        }
-                                                    });
+                                                            Node {
+                                                                align_items: AlignItems::Center,
+                                                                justify_items:
+                                                                JustifyItems::Center,
+                                                                align_content:
+                                                                AlignContent::Center,
+                                                                justify_content:
+                                                                JustifyContent::Center,
+                                                                margin: UiRect {
+                                                                    top: Val::Px(4.),
+                                                                    ..default()
+                                                                },
+                                                                ..default()
+                                                            },
+                                                            // Visibility::Hidden,
+                                                            // BackgroundColor(Color::WHITE),
+                                                            AutoCandidateCellMarker {
+                                                                index: i,
+                                                                selected: false,
+                                                            },
+                                                        ))
+                                                        .observe(manual_candidate_cell_move)
+                                                        .observe(manual_candidate_cell_out)
+                                                        .observe(manual_candidate_cell_click);
+                                                }
                                             });
-                                        // builder.spawn((Node::default(), BackgroundColor(Color::WHITE)));
+
+                                        // 手动候选格子容器
+                                        builder
+                                            .spawn((
+                                                Visibility::Hidden,
+                                                Node {
+                                                    height: Val::Percent(100.0),
+                                                    display: Display::Grid,
+                                                    aspect_ratio: Some(1.0),
+                                                    position_type: PositionType::Absolute,
+                                                    grid_template_columns:
+                                                    RepeatedGridTrack::flex(3, 1.0),
+                                                    grid_template_rows: RepeatedGridTrack::flex(
+                                                        3, 1.0,
+                                                    ),
+                                                    // row_gap: Val::Px(4.0),
+                                                    // column_gap: Val::Px(4.0),
+                                                    ..default()
+                                                },
+                                                ManualCandidatesContainer,
+                                            ))
+                                            .with_children(|builder| {
+                                                // 9个候选数字格子
+                                                for i in 1..=9u8 {
+                                                    builder
+                                                        .spawn((
+                                                            Text::new(i.to_string()),
+                                                            TextFont {
+                                                                font: asset_server.load("fonts/franklin-normal-700.ttf"),
+                                                                font_size: 16.0,
+                                                                ..default()
+                                                            },
+                                                            TextColor(TRANSPARENT),
+                                                            TextLayout::new_with_justify(
+                                                                JustifyText::Center,
+                                                            ),
+                                                            Node {
+                                                                align_items: AlignItems::Center,
+                                                                justify_items:
+                                                                JustifyItems::Center,
+                                                                align_content:
+                                                                AlignContent::Center,
+                                                                justify_content:
+                                                                JustifyContent::Center,
+                                                                margin: UiRect {
+                                                                    top: Val::Px(4.),
+                                                                    ..default()
+                                                                },
+                                                                ..default()
+                                                            },
+                                                            // Visibility::Hidden,
+                                                            // BackgroundColor(Color::WHITE),
+                                                            ManualCandidateCellMarker {
+                                                                index: i,
+                                                                selected: false,
+                                                            },
+                                                        ))
+                                                        .observe(manual_candidate_cell_move)
+                                                        .observe(manual_candidate_cell_out)
+                                                        .observe(manual_candidate_cell_click);
+                                                }
+                                            });
                                     });
                             }
                         });
@@ -312,7 +302,7 @@ fn on_click_cell(
 fn show_digit_cell(
     q_cell: Query<(Entity, &DigitValueCell, &CellMode)>,
     children: Query<&Children>,
-    mut digit_cell: Query<(&mut Text, &mut Visibility), With<DigitCellMarker>>,
+    mut digit_cell: Query<(&mut Text, &mut Visibility), With<DigitCellContainer>>,
 ) {
     for (entity, digit_value, cell_mode) in q_cell.iter() {
         for child in children.iter_descendants(entity) {
@@ -470,7 +460,6 @@ fn manual_candidate_cell_out(
     }
 }
 
-
 fn auto_candidate_cell_click(
     click: Trigger<Pointer<Click>>,
     mut cell: Query<&mut AutoCandidateCellMarker>,
@@ -585,7 +574,7 @@ fn switch_candidate_cell_mode(
             Without<ManualCandidatesContainer>,
         ),
     >,
-    mut q_cell_mode: Query<&mut CellMode>
+    mut q_cell_mode: Query<&mut CellMode>,
 ) {
     if **auto_mode {
         for mut visibility in q_manual.iter_mut() {

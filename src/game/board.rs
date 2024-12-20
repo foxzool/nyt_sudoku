@@ -548,45 +548,23 @@ fn move_select_cell(
 ) {
     let (entity, cell_position) = q_select.into_inner();
     for ev in move_ev.read() {
-        let new_position = match ev {
-            MoveSelectCell::Up => {
-                if cell_position.row() > 0 {
-                    let new_position =
-                        CellPosition::from_row_col(cell_position.row() - 1, cell_position.col());
-                    Some(new_position)
-                } else {
-                    None
-                }
-            }
-            MoveSelectCell::Down => {
-                if cell_position.row() < 8 {
-                    let new_position =
-                        CellPosition::from_row_col(cell_position.row() + 1, cell_position.col());
-                    Some(new_position)
-                } else {
-                    None
-                }
-            }
-            MoveSelectCell::Left => {
-                if cell_position.col() > 0 {
-                    let new_position =
-                        CellPosition::from_row_col(cell_position.row(), cell_position.col() - 1);
-
-                    Some(new_position)
-                } else {
-                    None
-                }
-            }
-            MoveSelectCell::Right => {
-                if cell_position.col() < 8 {
-                    let new_position =
-                        CellPosition::from_row_col(cell_position.row(), cell_position.col() + 1);
-                    Some(new_position)
-                } else {
-                    None
-                }
-            }
-        };
+        let new_position =
+            match ev {
+                MoveSelectCell::Up if cell_position.row() > 0 => Some(CellPosition::from_row_col(
+                    cell_position.row() - 1,
+                    cell_position.col(),
+                )),
+                MoveSelectCell::Down if cell_position.row() < 8 => Some(
+                    CellPosition::from_row_col(cell_position.row() + 1, cell_position.col()),
+                ),
+                MoveSelectCell::Left if cell_position.col() > 0 => Some(
+                    CellPosition::from_row_col(cell_position.row(), cell_position.col() - 1),
+                ),
+                MoveSelectCell::Right if cell_position.col() < 8 => Some(
+                    CellPosition::from_row_col(cell_position.row(), cell_position.col() + 1),
+                ),
+                _ => None,
+            };
 
         if let Some(new_position) = new_position {
             commands.entity(entity).remove::<SelectedCell>();

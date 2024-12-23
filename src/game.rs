@@ -44,6 +44,7 @@ impl Plugin for SudokuPlugin {
             .add_event::<RemoveDigit>()
             .add_event::<CleanCell>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
+            .add_systems(OnExit(GameState::Playing), cleanup_game)
             .add_systems(
                 Update,
                 (
@@ -65,13 +66,18 @@ impl Plugin for SudokuPlugin {
     }
 }
 
+#[derive(Component)]
+struct Game;
+
 fn setup_ui(
     mut commands: Commands,
     font_assets: Res<FontAssets>,
     texture_assets: Res<TextureAssets>,
 ) {
+    commands.spawn((Game, Camera2d));
     commands
         .spawn((
+            Game,
             Name::new("sudoku-content"),
             Node {
                 width: Val::Percent(100.0),
@@ -343,7 +349,13 @@ fn left_bar(
                         },
                         TextColor(*DARK_BLACK),
                     ));
-                });
+                })
+                .observe(
+                    |_trigger: Trigger<Pointer<Click>>,
+                     mut next_state: ResMut<NextState<GameState>>| {
+                        next_state.set(GameState::Menu);
+                    },
+                );
         });
 }
 
@@ -795,3 +807,9 @@ fn remove_conflict(
 
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct AutoCandidateMode(pub bool);
+
+fn cleanup_game(mut commands: Commands, menu: Query<Entity, With<Game>>) {
+    for entity in menu.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+}

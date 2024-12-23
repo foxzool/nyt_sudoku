@@ -10,6 +10,7 @@ use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 
 use bevy::app::App;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 
 // This example game uses States to separate game
@@ -20,7 +21,7 @@ enum GameState {
     // During the loading State the LoadingPlugin will load our assets
     #[default]
     Loading,
-    // During this State the actual game game is executed
+    // During this State the actual game is executed
     Playing,
     // Here the menu is drawn and waiting for player interaction
     Menu,
@@ -33,9 +34,9 @@ impl Plugin for GamePlugin {
         app.init_state::<GameState>()
             .add_plugins((LoadingPlugin, MenuPlugin, SudokuPlugin));
 
-        // #[cfg(debug_assertions)]
-        // {
-        //     app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
-        // }
+        #[cfg(debug_assertions)]
+        {
+            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
+        }
     }
 }

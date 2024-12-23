@@ -324,11 +324,11 @@ fn show_digit_cell(
 }
 
 fn show_candidates<C: CandidatesValue, M: CandidateMarker>(
-    q_cell: Query<(Entity, &C, &CellMode)>,
+    q_cell: Query<(Entity, &C)>,
     children: Query<&Children>,
     mut candidate_cell: Query<(&mut TextColor, &mut M)>,
 ) {
-    for (entity, manual_candidates, cell_mode) in q_cell.iter() {
+    for (entity, manual_candidates) in q_cell.iter() {
         for child in children.iter_descendants(entity) {
             if let Ok((mut text_color, mut cell_marker)) = candidate_cell.get_mut(child) {
                 if manual_candidates

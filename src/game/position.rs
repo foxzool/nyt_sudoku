@@ -57,6 +57,10 @@ impl CellPosition {
     pub fn block(&self) -> u8 {
         BLOCK[self.0 as usize]
     }
+
+    pub fn in_range(&self, other: &CellPosition) -> bool {
+        self.row() == other.row() || self.col() == other.col() || self.block() == other.block()
+    }
 }
 
 impl Display for CellPosition {

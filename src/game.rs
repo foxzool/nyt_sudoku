@@ -2,8 +2,7 @@ use crate::color::*;
 use crate::game::board::{play_board, PreviewCandidate};
 use crate::game::cell_state::CandidatesValue;
 use crate::game::cell_state::{
-    AutoCandidates, CellMode, CellValue, CellValueBundle, DigitValueCell, FixedCell,
-    ManualCandidates,
+    AutoCandidates, CellMode, CellValueBundle, DigitValueCell, FixedCell, ManualCandidates,
 };
 use crate::game::control_tab::control_board;
 use crate::game::input::keyboard_input;
@@ -549,7 +548,7 @@ fn on_new_candidate(
         for (mut digit_value, mut manual_candidates, mut auto_candidates, mut cell_mode) in
             q_cell.iter_mut()
         {
-            info!("new candidate: {:?}  {:?}", new_candidate, cell_mode);
+            debug!("new candidate: {:?}", new_candidate);
             match cell_mode.as_ref() {
                 CellMode::Digit => {
                     if let Some(digit) = digit_value.0 {
@@ -557,11 +556,9 @@ fn on_new_candidate(
                     }
                     digit_value.0 = None;
                     if **auto_mode {
-                        info!("digit change to auto candidates");
                         *cell_mode = CellMode::AutoCandidates;
                         auto_candidates.insert(new_candidate);
                     } else {
-                        info!("digit change to manual candidates");
                         *cell_mode = CellMode::ManualCandidates;
                         manual_candidates.insert(new_candidate);
                     }
@@ -624,9 +621,8 @@ fn on_clean_cell(
 
 fn check_solver(
     mut _trigger: EventReader<NewDigit>,
-    mut cell_query: Query<(&mut CellValue, &CellPosition)>,
+    mut cell_query: Query<(&mut DigitValueCell, &CellPosition)>,
     mut sudoku_manager: ResMut<SudokuManager>,
-    auto_mode: Res<AutoCandidateMode>,
 ) {
     for _ in _trigger.read() {
         let mut list = [CellState::Candidates(Set::NONE); 81];
@@ -634,8 +630,11 @@ fn check_solver(
             .iter()
             .sort_by::<&CellPosition>(|t1, t2| t1.0.cmp(&t2.0))
         {
-            list[cell_position.0 as usize] = cell_value.current(**auto_mode).clone();
+            if let Some(digit) = cell_value.0 {
+                list[cell_position.0 as usize] = CellState::Digit(digit);
+            }
         }
+
         sudoku_manager.solver = StrategySolver::from_grid_state(list);
 
         if sudoku_manager.solver.is_solved() {
@@ -678,22 +677,27 @@ impl RemoveDigit {
 }
 
 fn kick_candidates(
-    changed_cell: Query<(&CellValue, &CellPosition), (Changed<CellValue>, With<SelectedCell>)>,
-    mut q_cell: Query<(&mut CellValue, &CellPosition), Without<SelectedCell>>,
+    changed_cell: Query<
+        (&DigitValueCell, &CellPosition),
+        (Changed<DigitValueCell>, With<SelectedCell>),
+    >,
+    mut q_manual: Query<(&mut ManualCandidates, &CellPosition), Without<SelectedCell>>,
+    mut q_auto: Query<(&mut AutoCandidates, &CellPosition), Without<SelectedCell>>,
     auto_mode: Res<AutoCandidateMode>,
 ) {
     for (cell_state, kicker_position) in changed_cell.iter() {
-        if let CellState::Digit(digit) = cell_state.current(**auto_mode) {
+        if let Some(digit) = cell_state.0 {
             debug!("kick_candidates: {:?} {} ", digit, kicker_position);
-
-            for (mut cell_value, cell_position) in q_cell.iter_mut() {
-                if kicker_position.row() == cell_position.row()
-                    || kicker_position.col() == cell_position.col()
-                    || kicker_position.block() == cell_position.block()
-                {
-                    if let CellState::Candidates(mut candidates) = cell_value.current(**auto_mode) {
-                        candidates.remove(digit.as_set());
-                        cell_value.set(CellState::Candidates(candidates), **auto_mode);
+            if **auto_mode {
+                for (mut auto_candidates, cell_position) in q_auto.iter_mut() {
+                    if kicker_position.in_range(cell_position) {
+                        auto_candidates.0.remove(digit.as_set());
+                    }
+                }
+            } else {
+                for (mut manual_candidates, cell_position) in q_manual.iter_mut() {
+                    if kicker_position.in_range(cell_position) {
+                        manual_candidates.0.remove(digit.as_set());
                     }
                 }
             }
@@ -715,10 +719,7 @@ fn check_conflict(
             debug!("check conflict: {:?}", check_digit);
             let mut conflict_list = vec![];
             for (other_entity, other_cell_value, other_cell_position, children) in q_cell.iter() {
-                if cell_position.row() == other_cell_position.row()
-                    || cell_position.col() == other_cell_position.col()
-                    || cell_position.block() == other_cell_position.block()
-                {
+                if cell_position.in_range(other_cell_position) {
                     if let Some(other_digit) = other_cell_value.0 {
                         if check_digit == other_digit && cell_position != other_cell_position {
                             conflict_list.push(other_entity);
@@ -774,10 +775,7 @@ fn remove_conflict(
         }
 
         for (other_cell_value, other_cell_position, children) in other_cell.iter() {
-            if cell_position.row() == other_cell_position.row()
-                || cell_position.col() == other_cell_position.col()
-                || cell_position.block() == other_cell_position.block()
-            {
+            if cell_position.in_range(other_cell_position) {
                 if let Some(other_digit) = other_cell_value.0 {
                     if remove_digit == other_digit && cell_position != other_cell_position {
                         for child in children {

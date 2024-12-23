@@ -483,26 +483,115 @@ fn switch_candidate_cell_mode(
 
 fn change_cell_vis(
     q_cell: Query<(&CellMode, &Children), Changed<CellMode>>,
-    mut q_vis: Query<(
+    mut q_digit: Query<
         &mut Visibility,
-        &ConflictCount,
-        Option<&DigitCellContainer>,
-        Option<&ManualCandidatesContainer>,
-        Option<&AutoCandidatesContainer>,
-
-    )>,
+        (
+            With<DigitCellContainer>,
+            Without<ConflictCount>,
+            Without<ManualCandidatesContainer>,
+            Without<AutoCandidatesContainer>,
+        ),
+    >,
+    mut q_manual: Query<
+        &mut Visibility,
+        (
+            With<ManualCandidatesContainer>,
+            Without<DigitCellContainer>,
+            Without<ConflictCount>,
+            Without<AutoCandidatesContainer>,
+        ),
+    >,
+    mut q_auto: Query<
+        &mut Visibility,
+        (
+            With<AutoCandidatesContainer>,
+            Without<DigitCellContainer>,
+            Without<ConflictCount>,
+            Without<ManualCandidatesContainer>,
+        ),
+    >,
 ) {
     for (cell_mode, children) in q_cell.iter() {
-        for child in children.iter() {
-            if let Ok((mut visibility, conflict_count, opt_digit, opt_manual, opt_auto)) = q_vis.get_mut(*child) {
-                if *cell_mode == CellMode::Digit && opt_digit.is_some() {
-                    *visibility = Visibility::Visible;
-                } else if *cell_mode == CellMode::ManualCandidates && opt_manual.is_some() {
-                    *visibility = Visibility::Visible;
-                } else if *cell_mode == CellMode::AutoCandidates && opt_auto.is_some() {
-                    *visibility = Visibility::Visible;
-                }
+        match cell_mode {
+            CellMode::Digit => {
+                change_vis_inner(
+                    children,
+                    &mut q_digit,
+                    &mut q_manual,
+                    &mut q_auto,
+                    Visibility::Visible,
+                    Visibility::Hidden,
+                    Visibility::Hidden,
+                );
             }
+            CellMode::ManualCandidates => {
+                change_vis_inner(
+                    children,
+                    &mut q_digit,
+                    &mut q_manual,
+                    &mut q_auto,
+                    Visibility::Hidden,
+                    Visibility::Visible,
+                    Visibility::Hidden,
+                );
+            }
+            CellMode::AutoCandidates => {
+                change_vis_inner(
+                    children,
+                    &mut q_digit,
+                    &mut q_manual,
+                    &mut q_auto,
+                    Visibility::Hidden,
+                    Visibility::Hidden,
+                    Visibility::Visible,
+                );
+            }
+        }
+    }
+}
+
+fn change_vis_inner(
+    children: &Children,
+    q_digit: &mut Query<
+        &mut Visibility,
+        (
+            With<DigitCellContainer>,
+            Without<ConflictCount>,
+            Without<ManualCandidatesContainer>,
+            Without<AutoCandidatesContainer>,
+        ),
+    >,
+    q_manual: &mut Query<
+        &mut Visibility,
+        (
+            With<ManualCandidatesContainer>,
+            Without<DigitCellContainer>,
+            Without<ConflictCount>,
+            Without<AutoCandidatesContainer>,
+        ),
+    >,
+    q_auto: &mut Query<
+        &mut Visibility,
+        (
+            With<AutoCandidatesContainer>,
+            Without<DigitCellContainer>,
+            Without<ConflictCount>,
+            Without<ManualCandidatesContainer>,
+        ),
+    >,
+    digit_vis: Visibility,
+    manual_vis: Visibility,
+    auto_vis: Visibility,
+) {
+    for child in children.iter() {
+        if let Ok(mut vis) = q_digit.get_mut(*child) {
+            *vis = digit_vis;
+        }
+        if let Ok(mut vis) = q_manual.get_mut(*child) {
+            *vis = manual_vis;
+        }
+        if let Ok(mut vis) = q_auto.get_mut(*child) {
+            *vis = auto_vis;
         }
     }
 }

@@ -1,8 +1,6 @@
 use crate::color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR};
 use crate::game::{AutoCandidateMode, CleanCell, NewCandidate, NewDigit, SelectedCell};
-use crate::GameState;
 use bevy::prelude::*;
-use sudoku::board::{CellState, Digit};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<SelectedTab>()
@@ -265,7 +263,7 @@ pub(crate) fn control_board(
                             |_trigger: Trigger<Pointer<Click>>,
                              selected_cell: Single<Entity, With<SelectedCell>>,
                              mut commands: Commands| {
-                                commands.trigger_targets(CleanCell, vec![*selected_cell]);
+                                commands.send_event(CleanCell);
                             },
                         )
                         .with_children(|builder| {
@@ -482,19 +480,16 @@ struct ControlNumber(u8);
 fn mouse_click_control_digit(
     trigger: Trigger<Pointer<Click>>,
     q_cell: Query<&ControlNumber>,
-    selected_cell: Single<Entity, With<SelectedCell>>,
     mut commands: Commands,
     selected_tab: Res<SelectedTab>,
 ) {
     if let Ok(cell_value) = q_cell.get(trigger.entity()) {
         match selected_tab.0 {
             ControlTab::Normal => {
-                info!("New digit: {} ", cell_value.0);
-                commands.trigger_targets(NewDigit::new(cell_value.0), vec![*selected_cell]);
+                commands.send_event(NewDigit::new(cell_value.0));
             }
             ControlTab::Candidate => {
-                info!("New candidate: {} ", cell_value.0);
-                commands.trigger_targets(NewCandidate::new(cell_value.0), vec![*selected_cell]);
+                commands.send_event(NewCandidate::new(cell_value.0));
             }
         }
     }

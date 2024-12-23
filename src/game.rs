@@ -545,9 +545,11 @@ fn on_new_candidate(
 ) {
     for new_candidate in trigger.read() {
         let new_candidate = new_candidate.0;
+
         for (mut digit_value, mut manual_candidates, mut auto_candidates, mut cell_mode) in
             q_cell.iter_mut()
         {
+            info!("new candidate: {:?}  {:?}", new_candidate, cell_mode);
             match cell_mode.as_ref() {
                 CellMode::Digit => {
                     if let Some(digit) = digit_value.0 {
@@ -555,17 +557,21 @@ fn on_new_candidate(
                     }
                     digit_value.0 = None;
                     if **auto_mode {
+                        info!("digit change to auto candidates");
                         *cell_mode = CellMode::AutoCandidates;
                         auto_candidates.insert(new_candidate);
                     } else {
+                        info!("digit change to manual candidates");
                         *cell_mode = CellMode::ManualCandidates;
                         manual_candidates.insert(new_candidate);
                     }
                 }
                 CellMode::AutoCandidates => {
+                    *cell_mode = CellMode::AutoCandidates;
                     auto_candidates.insert(new_candidate);
                 }
                 CellMode::ManualCandidates => {
+                    *cell_mode = CellMode::ManualCandidates;
                     manual_candidates.insert(new_candidate);
                 }
             }
@@ -706,7 +712,7 @@ fn check_conflict(
 ) {
     if let Ok((check_entity, digit_cell, cell_position)) = update_cell.get_single() {
         if let Some(check_digit) = digit_cell.0 {
-            info!("check conflict: {:?}", check_digit);
+            debug!("check conflict: {:?}", check_digit);
             let mut conflict_list = vec![];
             for (other_entity, other_cell_value, other_cell_position, children) in q_cell.iter() {
                 if cell_position.row() == other_cell_position.row()

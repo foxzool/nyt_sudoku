@@ -16,6 +16,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy::time::Stopwatch;
 use bevy::utils::HashSet;
+use bevy::window::WindowFocused;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
@@ -55,12 +56,14 @@ impl Plugin for SudokuPlugin {
                     on_new_candidate,
                     check_solver,
                     on_clean_cell,
+                    check_window_focus,
                 )
                     .run_if(in_state(GameState::Playing)),
             )
             .add_observer(check_conflict)
             .add_observer(on_select_cell)
             .add_observer(remove_conflict)
+            .add_observer(on_pause_game)
             .add_observer(on_unselect_cell);
     }
 }
@@ -285,20 +288,26 @@ fn center_bar(
                 TimerText,
             ));
 
-            builder.spawn((
-                ImageNode {
-                    image: texture_assets.pause.clone(),
-                    ..default()
-                },
-                Node {
-                    margin: UiRect {
-                        left: Val::Px(5.0),
+            builder
+                .spawn((
+                    ImageNode {
+                        image: texture_assets.pause.clone(),
                         ..default()
                     },
-                    width: Val::Px(11.0),
-                    ..default()
-                },
-            ));
+                    Node {
+                        margin: UiRect {
+                            left: Val::Px(5.0),
+                            ..default()
+                        },
+                        width: Val::Px(11.0),
+                        ..default()
+                    },
+                ))
+                .observe(
+                    |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+                        commands.trigger(PauseGame(true));
+                    },
+                );
         });
 }
 
@@ -844,4 +853,23 @@ fn update_game_time(
 ) {
     game_timer.tick(time.delta());
     text.0 = game_timer.to_string();
+}
+
+fn check_window_focus(mut windows: EventReader<WindowFocused>, mut commands: Commands) {
+    for window in windows.read() {
+        if !window.focused {
+            commands.trigger(PauseGame(true));
+        }
+    }
+}
+
+#[derive(Event)]
+pub struct PauseGame(pub bool);
+
+fn on_pause_game(mut ev: Trigger<PauseGame>, mut time: ResMut<Time<Virtual>>) {
+    if ev.event().0 {
+        time.pause();
+    } else {
+        time.unpause();
+    }
 }

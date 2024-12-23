@@ -485,22 +485,22 @@ fn change_cell_vis(
     q_cell: Query<(&CellMode, &Children), Changed<CellMode>>,
     mut q_vis: Query<(
         &mut Visibility,
+        &ConflictCount,
         Option<&DigitCellContainer>,
         Option<&ManualCandidatesContainer>,
         Option<&AutoCandidatesContainer>,
+
     )>,
 ) {
     for (cell_mode, children) in q_cell.iter() {
         for child in children.iter() {
-            if let Ok((mut visibility, opt_digit, opt_manual, opt_auto)) = q_vis.get_mut(*child) {
+            if let Ok((mut visibility, conflict_count, opt_digit, opt_manual, opt_auto)) = q_vis.get_mut(*child) {
                 if *cell_mode == CellMode::Digit && opt_digit.is_some() {
                     *visibility = Visibility::Visible;
                 } else if *cell_mode == CellMode::ManualCandidates && opt_manual.is_some() {
                     *visibility = Visibility::Visible;
                 } else if *cell_mode == CellMode::AutoCandidates && opt_auto.is_some() {
                     *visibility = Visibility::Visible;
-                } else {
-                    *visibility = Visibility::Hidden;
                 }
             }
         }

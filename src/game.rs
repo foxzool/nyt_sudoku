@@ -56,11 +56,12 @@ impl Plugin for SudokuPlugin {
                     on_new_candidate,
                     check_solver,
                     on_clean_cell,
-                    (remove_conflict, check_conflict).chain(),
                 )
                     .run_if(in_state(GameState::Playing)),
             )
+            .add_observer(check_conflict)
             .add_observer(on_select_cell)
+            .add_observer(remove_conflict)
             .add_observer(on_unselect_cell);
     }
 }
@@ -518,11 +519,12 @@ fn on_new_digit(
 
             if let Some(old_digit) = cell_value.0 {
                 if old_digit != new_digit {
-                    commands.send_event(RemoveDigit(old_digit));
+                    commands.trigger(RemoveDigit(old_digit));
                 }
             }
 
             cell_value.0 = Some(new_digit);
+            commands.trigger(CheckDigitConflict)
         }
     }
 }
@@ -549,7 +551,7 @@ fn on_new_candidate(
             match cell_mode.as_ref() {
                 CellMode::Digit => {
                     if let Some(digit) = digit_value.0 {
-                        commands.send_event(RemoveDigit(digit));
+                        commands.trigger(RemoveDigit(digit));
                     }
                     digit_value.0 = None;
                     if **auto_mode {
@@ -592,7 +594,7 @@ fn on_clean_cell(
             match *cell_mode {
                 CellMode::Digit => {
                     if let Some(digit) = digit_value.0 {
-                        commands.send_event(RemoveDigit(digit));
+                        commands.trigger(RemoveDigit(digit));
                     }
                     digit_value.0 = None;
                     if **auto_mode {
@@ -658,6 +660,9 @@ impl NewDigit {
 }
 
 #[derive(Event)]
+pub struct CheckDigitConflict;
+
+#[derive(Event)]
 pub struct RemoveDigit(pub Digit);
 
 impl RemoveDigit {
@@ -691,14 +696,17 @@ fn kick_candidates(
 }
 
 fn check_conflict(
-    mut new_digit: EventReader<NewDigit>,
-    update_cell: Query<(Entity, &CellPosition), (With<SelectedCell>, Without<FixedCell>)>,
+    mut _check_digit: Trigger<CheckDigitConflict>,
+    update_cell: Query<
+        (Entity, &DigitValueCell, &CellPosition),
+        (With<SelectedCell>, Without<FixedCell>),
+    >,
     mut q_cell: Query<(Entity, &DigitValueCell, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
 ) {
-    for new_digit in new_digit.read() {
-        if let Ok((check_entity, cell_position)) = update_cell.get_single() {
-            info!("check conflict: {:?}", new_digit.0);
+    if let Ok((check_entity, digit_cell, cell_position)) = update_cell.get_single() {
+        if let Some(check_digit) = digit_cell.0 {
+            info!("check conflict: {:?}", check_digit);
             let mut conflict_list = vec![];
             for (other_entity, other_cell_value, other_cell_position, children) in q_cell.iter() {
                 if cell_position.row() == other_cell_position.row()
@@ -706,7 +714,7 @@ fn check_conflict(
                     || cell_position.block() == other_cell_position.block()
                 {
                     if let Some(other_digit) = other_cell_value.0 {
-                        if new_digit.0 == other_digit && cell_position != other_cell_position {
+                        if check_digit == other_digit && cell_position != other_cell_position {
                             conflict_list.push(other_entity);
                             for child in children {
                                 if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
@@ -731,7 +739,7 @@ fn check_conflict(
                     }
                 }
             }
-        }
+        };
     }
 }
 
@@ -746,42 +754,29 @@ fn show_conflict(mut q_conflict: Query<(&mut Visibility, &ConflictCount), Change
 }
 
 fn remove_conflict(
-    mut trigger: EventReader<RemoveDigit>,
+    mut remove_digit: Trigger<RemoveDigit>,
     q_cell: Query<(Entity, &DigitValueCell, &CellPosition, &Children), With<SelectedCell>>,
     other_cell: Query<(&DigitValueCell, &CellPosition, &Children), Without<SelectedCell>>,
     mut q_conflict: Query<&mut ConflictCount>,
 ) {
-    for remove_digit in trigger.read() {
-        let remove_digit = remove_digit.0;
-        for (entity, cell_value, cell_position, children) in q_cell.iter() {
-            for child in children {
-                if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                    println!(
-                        "remove {} {cell_value:?} {} conflict count: {}",
-                        remove_digit.get(),
-                        cell_position,
-                        conflict_count.0.len()
-                    );
-                    conflict_count.clear();
-                }
+    let remove_digit = remove_digit.0;
+    for (entity, cell_value, cell_position, children) in q_cell.iter() {
+        for child in children {
+            if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
+                conflict_count.clear();
             }
+        }
 
-            for (other_cell_value, other_cell_position, children) in other_cell.iter() {
-                if cell_position.row() == other_cell_position.row()
-                    || cell_position.col() == other_cell_position.col()
-                    || cell_position.block() == other_cell_position.block()
-                {
-                    if let Some(other_digit) = other_cell_value.0 {
-                        if remove_digit == other_digit && cell_position != other_cell_position {
-                            for child in children {
-                                if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                                    conflict_count.remove(&entity);
-                                    debug!(
-                                        "clean {} conflict count: {}",
-                                        other_cell_position,
-                                        conflict_count.0.len()
-                                    );
-                                }
+        for (other_cell_value, other_cell_position, children) in other_cell.iter() {
+            if cell_position.row() == other_cell_position.row()
+                || cell_position.col() == other_cell_position.col()
+                || cell_position.block() == other_cell_position.block()
+            {
+                if let Some(other_digit) = other_cell_value.0 {
+                    if remove_digit == other_digit && cell_position != other_cell_position {
+                        for child in children {
+                            if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
+                                conflict_count.remove(&entity);
                             }
                         }
                     }

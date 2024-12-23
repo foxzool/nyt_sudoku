@@ -429,7 +429,7 @@ fn candidate_cell_move<C: CandidatesValue, M: CandidateMarker>(
     trigger: Trigger<Pointer<Over>>,
     cell: Query<&M>,
     parent_query: Query<&Parent>,
-    mut q_select: Query<&mut C, With<SelectedCell>>,
+    q_select: Query<&mut C, With<SelectedCell>>,
     mut commands: Commands,
 ) {
     if let Ok(manual_marker) = cell.get(trigger.entity()) {
@@ -468,7 +468,7 @@ fn candidate_cell_out<M: CandidateMarker>(
 }
 
 fn move_select_cell(
-    mut move_ev: Trigger<MoveSelectCell>,
+    move_ev: Trigger<MoveSelectCell>,
     mut commands: Commands,
     q_select: Single<(Entity, &CellPosition), With<SelectedCell>>,
     q_other: Query<(Entity, &CellPosition), Without<SelectedCell>>,

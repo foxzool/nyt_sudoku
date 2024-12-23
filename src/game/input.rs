@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 pub(crate) fn keyboard_input(
     mut commands: Commands,
-    mut keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Delete) {
         commands.send_event(CleanCell);
@@ -85,7 +85,7 @@ impl Default for MoveTimer {
 
 pub(crate) fn keyboard_move_cell(
     mut commands: Commands,
-    mut keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut timer: Local<MoveTimer>,
 ) {

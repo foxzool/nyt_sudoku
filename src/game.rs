@@ -177,7 +177,7 @@ fn toolbars(
 }
 
 fn right_bar(
-    font_assets: &Res<FontAssets>,
+    _font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
     builder: &mut ChildBuilder,
 ) {
@@ -411,8 +411,9 @@ fn title_bar(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                             // BackgroundColor(GRAY),
                         ))
                         .with_children(|p| {
+                            let date_str = chrono::Local::now().format("%B %d, %Y").to_string();
                             p.spawn((
-                                Text::new("December 17, 2024"),
+                                Text::new(date_str),
                                 TextFont {
                                     font_size: 28.0,
                                     font: font_assets.franklin_500.clone(),
@@ -452,16 +453,6 @@ pub struct ManualCandidatesContainer;
 /// 自动候选格子容器
 #[derive(Component)]
 pub struct AutoCandidatesContainer;
-
-/// 候选数字格子索引，从1到9
-#[derive(Component, Debug)]
-pub struct CandidateCell {
-    pub index: u8,
-    /// 是否是自动选择的候选数字
-    pub auto_candidate_selected: bool,
-    /// 是否是手动选择的候选数字
-    pub manual_candidate_selected: bool,
-}
 
 fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosition)>) {
     let sudoku = Sudoku::generate();
@@ -639,7 +630,7 @@ fn on_clean_cell(
 
 fn check_solver(
     mut _trigger: EventReader<NewDigit>,
-    mut cell_query: Query<(&mut DigitValueCell, &CellPosition)>,
+    cell_query: Query<(&DigitValueCell, &CellPosition)>,
     mut sudoku_manager: ResMut<SudokuManager>,
 ) {
     for _ in _trigger.read() {
@@ -688,12 +679,6 @@ pub struct CheckDigitConflict;
 #[derive(Event)]
 pub struct RemoveDigit(pub Digit);
 
-impl RemoveDigit {
-    pub fn new(digit: u8) -> RemoveDigit {
-        RemoveDigit(Digit::new(digit))
-    }
-}
-
 fn kick_candidates(
     changed_cell: Query<
         (&DigitValueCell, &CellPosition),
@@ -724,12 +709,12 @@ fn kick_candidates(
 }
 
 fn check_conflict(
-    mut _check_digit: Trigger<CheckDigitConflict>,
+    _check_digit: Trigger<CheckDigitConflict>,
     update_cell: Query<
         (Entity, &DigitValueCell, &CellPosition),
         (With<SelectedCell>, Without<FixedCell>),
     >,
-    mut q_cell: Query<(Entity, &DigitValueCell, &CellPosition, &Children)>,
+    q_cell: Query<(Entity, &DigitValueCell, &CellPosition, &Children)>,
     mut q_conflict: Query<&mut ConflictCount>,
 ) {
     if let Ok((check_entity, digit_cell, cell_position)) = update_cell.get_single() {
@@ -779,13 +764,13 @@ fn show_conflict(mut q_conflict: Query<(&mut Visibility, &ConflictCount), Change
 }
 
 fn remove_conflict(
-    mut remove_digit: Trigger<RemoveDigit>,
-    q_cell: Query<(Entity, &DigitValueCell, &CellPosition, &Children), With<SelectedCell>>,
+    remove_digit: Trigger<RemoveDigit>,
+    q_cell: Query<(Entity, &CellPosition, &Children), With<SelectedCell>>,
     other_cell: Query<(&DigitValueCell, &CellPosition, &Children), Without<SelectedCell>>,
     mut q_conflict: Query<&mut ConflictCount>,
 ) {
     let remove_digit = remove_digit.0;
-    for (entity, cell_value, cell_position, children) in q_cell.iter() {
+    for (entity, cell_position, children) in q_cell.iter() {
         for child in children {
             if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
                 conflict_count.clear();

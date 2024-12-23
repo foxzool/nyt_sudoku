@@ -1,16 +1,20 @@
-use crate::color::*;
-use crate::game::board::{play_board, PreviewCandidate};
-use crate::game::cell_state::CandidatesValue;
-use crate::game::cell_state::{
-    AutoCandidates, CellMode, CellValueBundle, DigitValueCell, FixedCell, ManualCandidates,
+use crate::{
+    color::*,
+    game::{
+        board::{play_board, PreviewCandidate},
+        cell_state::CandidatesValue,
+        cell_state::{
+            AutoCandidates, CellMode, CellValueBundle, DigitValueCell, FixedCell, ManualCandidates,
+        },
+        control_tab::control_board,
+        input::{keyboard_input, keyboard_move_cell},
+        position::CellPosition,
+    },
+    loading::{FontAssets, TextureAssets},
+    GameState,
 };
-use crate::game::control_tab::control_board;
-use crate::game::input::keyboard_input;
-use crate::game::input::keyboard_move_cell;
-use crate::game::position::CellPosition;
-use crate::loading::{FontAssets, TextureAssets};
-use crate::GameState;
 use bevy::prelude::*;
+use bevy::time::Stopwatch;
 use bevy::utils::HashSet;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
@@ -24,12 +28,6 @@ mod input;
 mod position;
 
 pub struct SudokuPlugin;
-
-#[derive(Resource, Debug)]
-pub struct SudokuManager {
-    pub current_sudoku: Sudoku,
-    pub solver: StrategySolver,
-}
 
 /// This plugin handles player related stuff like movement
 /// Player game is only active during the State `GameState::Playing`
@@ -49,6 +47,7 @@ impl Plugin for SudokuPlugin {
                 Update,
                 (
                     keyboard_input,
+                    update_game_time,
                     keyboard_move_cell,
                     show_conflict,
                     kick_candidates,
@@ -66,6 +65,12 @@ impl Plugin for SudokuPlugin {
     }
 }
 
+#[derive(Resource, Debug)]
+pub struct SudokuManager {
+    pub current_sudoku: Sudoku,
+    pub solver: StrategySolver,
+}
+
 #[derive(Component)]
 struct Game;
 
@@ -75,6 +80,7 @@ fn setup_ui(
     texture_assets: Res<TextureAssets>,
 ) {
     commands.spawn((Game, Camera2d));
+    commands.insert_resource(GameTimer(Stopwatch::new()));
     commands
         .spawn((
             Game,
@@ -276,6 +282,7 @@ fn center_bar(
                     ..default()
                 },
                 TextColor(*DARK_BLACK),
+                TimerText,
             ));
 
             builder.spawn((
@@ -812,4 +819,29 @@ fn cleanup_game(mut commands: Commands, menu: Query<Entity, With<Game>>) {
     for entity in menu.iter() {
         commands.entity(entity).despawn_recursive();
     }
+}
+
+#[derive(Resource, Default, Deref, DerefMut, Debug)]
+pub struct GameTimer(pub Stopwatch);
+
+impl core::fmt::Display for GameTimer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let elapsed = self.elapsed();
+        let seconds = elapsed.as_secs();
+        let minutes = seconds / 60;
+        let hours = minutes / 60;
+        write!(f, "{:02}:{:02}:{:02}", hours, minutes % 60, seconds % 60)
+    }
+}
+
+#[derive(Component)]
+struct TimerText;
+
+fn update_game_time(
+    mut game_timer: ResMut<GameTimer>,
+    time: Res<Time>,
+    mut text: Single<&mut Text, With<TimerText>>,
+) {
+    game_timer.tick(time.delta());
+    text.0 = game_timer.to_string();
 }

@@ -1,9 +1,4 @@
-use crate::game::control_tab::ToggleTab;
-use crate::game::MoveSelectCell;
-use crate::{
-    game::NewDigit,
-    game::{CleanCell, NewCandidate, SelectedCell},
-};
+use crate::game::{control_tab::ToggleTab, CleanCell, MoveSelectCell, NewCandidate, NewDigit};
 use bevy::prelude::*;
 
 pub(crate) fn keyboard_input(

@@ -8,8 +8,8 @@ use crate::game::control_tab::control_board;
 use crate::game::input::keyboard_input;
 use crate::game::input::keyboard_move_cell;
 use crate::game::position::CellPosition;
+use crate::loading::{FontAssets, TextureAssets};
 use crate::GameState;
-use bevy::color::palettes::basic::RED;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
 use sudoku::bitset::Set;
@@ -65,9 +65,11 @@ impl Plugin for SudokuPlugin {
     }
 }
 
-fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font5 = asset_server.load("fonts/franklin-normal-500.ttf");
-
+fn setup_ui(
+    mut commands: Commands,
+    font_assets: Res<FontAssets>,
+    texture_assets: Res<TextureAssets>,
+) {
     commands
         .spawn((
             Name::new("sudoku-content"),
@@ -84,7 +86,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|builder| {
             // 顶部 LOGO
-            title_bar(&asset_server, &font5, builder);
+            title_bar(&font_assets, builder);
 
             builder
                 .spawn((
@@ -99,7 +101,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ))
                 .with_children(|builder| {
                     // 工具栏
-                    toolbars(&asset_server, &font5, builder);
+                    toolbars(&font_assets, &texture_assets, builder);
 
                     // 游戏容器
                     builder
@@ -122,17 +124,21 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 })
                                 .with_children(|builder| {
                                     // 格子布局容器
-                                    play_board(&asset_server, builder);
+                                    play_board(&font_assets, &texture_assets, builder);
 
                                     // 右侧边栏
-                                    control_board(&asset_server, &font5, builder);
+                                    control_board(&font_assets, &texture_assets, builder);
                                 });
                         });
                 });
         });
 }
 
-fn toolbars(asset_server: &Res<AssetServer>, font5: &Handle<Font>, builder: &mut ChildBuilder) {
+fn toolbars(
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildBuilder,
+) {
     builder
         .spawn((
             Name::new("tool-bar"),
@@ -161,16 +167,20 @@ fn toolbars(asset_server: &Res<AssetServer>, font5: &Handle<Font>, builder: &mut
                 ))
                 .with_children(|builder| {
                     // left bar
-                    left_bar(&asset_server, &font5, builder);
+                    left_bar(&font_assets, &texture_assets, builder);
                     // center bar
-                    center_bar(&asset_server, &font5, builder);
+                    center_bar(&font_assets, &texture_assets, builder);
                     // right bar
-                    right_bar(&asset_server, builder);
+                    right_bar(&font_assets, &texture_assets, builder);
                 });
         });
 }
 
-fn right_bar(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
+fn right_bar(
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildBuilder,
+) {
     builder
         .spawn((
             Name::new("right-bar"),
@@ -188,7 +198,7 @@ fn right_bar(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
         .with_children(|builder| {
             builder.spawn((
                 ImageNode {
-                    image: asset_server.load("textures/question.png"),
+                    image: texture_assets.question.clone(),
                     ..default()
                 },
                 Node {
@@ -204,7 +214,7 @@ fn right_bar(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
 
             builder.spawn((
                 ImageNode {
-                    image: asset_server.load("textures/more.png"),
+                    image: texture_assets.more.clone(),
                     ..default()
                 },
                 Node {
@@ -220,7 +230,7 @@ fn right_bar(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
 
             builder.spawn((
                 ImageNode {
-                    image: asset_server.load("textures/setting.png"),
+                    image: texture_assets.setting.clone(),
                     ..default()
                 },
                 Node {
@@ -236,7 +246,11 @@ fn right_bar(asset_server: &Res<AssetServer>, builder: &mut ChildBuilder) {
         });
 }
 
-fn center_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut ChildBuilder) {
+fn center_bar(
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildBuilder,
+) {
     builder
         .spawn((
             Name::new("center-bar"),
@@ -252,7 +266,7 @@ fn center_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mu
                 Text::new("1:02:34"),
                 TextFont {
                     font_size: 16.0,
-                    font: font.clone(),
+                    font: font_assets.franklin_500.clone(),
                     ..default()
                 },
                 TextColor(*DARK_BLACK),
@@ -260,7 +274,7 @@ fn center_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mu
 
             builder.spawn((
                 ImageNode {
-                    image: asset_server.load("textures/pause.png"),
+                    image: texture_assets.pause.clone(),
                     ..default()
                 },
                 Node {
@@ -275,7 +289,11 @@ fn center_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mu
         });
 }
 
-fn left_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut ChildBuilder) {
+fn left_bar(
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildBuilder,
+) {
     builder
         .spawn((
             Name::new("left-tool-bar"),
@@ -302,7 +320,7 @@ fn left_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut 
                 .with_children(|builder| {
                     builder.spawn((
                         ImageNode {
-                            image: asset_server.load("textures/back.png"),
+                            image: texture_assets.back.clone(),
                             ..default()
                         },
                         Node {
@@ -320,7 +338,7 @@ fn left_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut 
                         Text::new("Back"),
                         TextFont {
                             font_size: 16.0,
-                            font: font.clone(),
+                            font: font_assets.franklin_500.clone(),
                             ..default()
                         },
                         TextColor(*DARK_BLACK),
@@ -330,7 +348,7 @@ fn left_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut 
 }
 
 /// 顶部标题栏
-fn title_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut ChildBuilder) {
+fn title_bar(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
     builder
         .spawn((
             Name::new("title-bar"),
@@ -375,7 +393,7 @@ fn title_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut
                                 Text::new("Sudoku"),
                                 TextFont {
                                     font_size: 42.0,
-                                    font: asset_server.load("fonts/NYTKarnakCondensed.ttf"),
+                                    font: font_assets.karnak.clone(),
                                     ..default()
                                 },
                                 TextColor::BLACK,
@@ -397,7 +415,7 @@ fn title_bar(asset_server: &Res<AssetServer>, font: &Handle<Font>, builder: &mut
                                 Text::new("December 17, 2024"),
                                 TextFont {
                                     font_size: 28.0,
-                                    font: font.clone(),
+                                    font: font_assets.franklin_500.clone(),
                                     ..default()
                                 },
                                 TextColor::BLACK,

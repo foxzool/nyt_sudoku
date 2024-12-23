@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use std::ops::{BitOrAssign, BitXorAssign, Deref};
+use std::ops::BitXorAssign;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 
@@ -85,12 +85,9 @@ pub enum CellMode {
     ManualCandidates,
 }
 
-
-
 /// 固定的格子， 不能修改
 #[derive(Component)]
 pub struct FixedCell;
-
 
 /// 手动候选数字
 #[derive(Component, Debug)]

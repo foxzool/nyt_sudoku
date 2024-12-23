@@ -1,5 +1,6 @@
 use crate::color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR};
 use crate::game::{AutoCandidateMode, CleanCell, NewCandidate, NewDigit, SelectedCell};
+use crate::loading::{FontAssets, TextureAssets};
 use bevy::prelude::*;
 
 pub(crate) fn plugin(app: &mut App) {
@@ -39,8 +40,8 @@ struct ChangeTab(ControlTab);
 struct SelectedTab(ControlTab);
 
 pub(crate) fn control_board(
-    asset_server: &Res<AssetServer>,
-    font: &Handle<Font>,
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
     builder: &mut ChildBuilder,
 ) {
     builder
@@ -90,7 +91,7 @@ pub(crate) fn control_board(
                         .with_child((
                             Text::new("Normal"),
                             TextFont {
-                                font: font.clone(),
+                                font: font_assets.franklin_500.clone(),
                                 font_size: 14.0,
                                 ..default()
                             },
@@ -122,7 +123,7 @@ pub(crate) fn control_board(
                         .with_child((
                             Text::new("Candidate"),
                             TextFont {
-                                font: font.clone(),
+                                font: font_assets.franklin_500.clone(),
                                 font_size: 14.0,
                                 ..default()
                             },
@@ -178,7 +179,7 @@ pub(crate) fn control_board(
                                 builder.spawn((
                                     Text::new(i.to_string()),
                                     TextFont {
-                                        font: asset_server.load("fonts/franklin-normal-700.ttf"),
+                                        font: font_assets.franklin_700.clone(),
                                         font_size: 32.0,
                                         ..default()
                                     },
@@ -214,8 +215,7 @@ pub(crate) fn control_board(
                                                 visibility,
                                                 Text::new(k.to_string()),
                                                 TextFont {
-                                                    font: asset_server
-                                                        .load("fonts/franklin-normal-700.ttf"),
+                                                    font: font_assets.franklin_700.clone(),
                                                     font_size: 16.0,
                                                     ..default()
                                                 },
@@ -269,7 +269,7 @@ pub(crate) fn control_board(
                         .with_children(|builder| {
                             builder.spawn((
                                 ImageNode {
-                                    image: asset_server.load("textures/close.png"),
+                                    image: texture_assets.close.clone(),
                                     ..default()
                                 },
                                 Node {
@@ -297,7 +297,7 @@ pub(crate) fn control_board(
                         .observe(on_click_auto_candidate)
                         .with_children(|builder| {
                             builder.spawn((
-                                ImageNode::new(asset_server.load("textures/blank-check-box.png")),
+                                ImageNode::new(texture_assets.blank_check.clone()),
                                 Node {
                                     width: Val::Px(13.0),
                                     height: Val::Px(13.0),
@@ -309,7 +309,7 @@ pub(crate) fn control_board(
 
                             builder.spawn((
                                 Visibility::Hidden,
-                                ImageNode::new(asset_server.load("textures/check.png")),
+                                ImageNode::new(texture_assets.check.clone()),
                                 Node {
                                     position_type: PositionType::Absolute,
                                     width: Val::Px(13.0),
@@ -322,7 +322,7 @@ pub(crate) fn control_board(
                             builder.spawn((
                                 Text::new("Auto Candidate Mode"),
                                 TextFont {
-                                    font: asset_server.load("fonts/franklin-normal-600.ttf"),
+                                    font: font_assets.franklin_600.clone(),
                                     font_size: 16.0,
                                     ..default()
                                 },

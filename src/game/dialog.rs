@@ -143,7 +143,7 @@ fn on_pause_game(
     ev: Trigger<PauseGame>,
     mut time: ResMut<Time<Virtual>>,
     mut commands: Commands,
-    mut q_pause: Single<Entity, With<PauseContainer>>,
+    q_pause: Single<Entity, With<PauseContainer>>,
     mut q_dialog: Single<&mut Visibility, With<DialogContainer>>,
 ) {
     if ev.event().0 {

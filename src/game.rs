@@ -16,6 +16,7 @@ use crate::{
     GameState,
 };
 use bevy::color::palettes::basic::RED;
+use bevy::color::palettes::css::LIGHT_YELLOW;
 use bevy::prelude::*;
 use bevy::time::Stopwatch;
 use bevy::utils::HashSet;
@@ -281,6 +282,19 @@ fn center_bar(
             },
         ))
         .with_children(|builder| {
+            builder.spawn((
+                Text::new("Easy"),
+                TextFont {
+                    font_size: 18.0,
+                    font: font_assets.franklin_500.clone(),
+                    ..default()
+                },
+                TextColor::BLACK,
+                Node {
+                    margin: UiRect::horizontal(Val::Px(16.0)),
+                    ..default()
+                },
+            ));
             builder.spawn((
                 Text::new("1:02:34"),
                 TextFont {

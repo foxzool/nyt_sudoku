@@ -64,7 +64,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                     ChangeState(GameState::Playing),
                 ))
                 .with_child((
-                    Text::new("Play"),
+                    Text::new("Easy"),
                     TextFont {
                         font_size: 40.0,
                         ..default()

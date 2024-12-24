@@ -41,8 +41,11 @@ pub struct TextureAssets {
     pub circle: Handle<Image>,
     #[asset(path = "textures/close.png")]
     pub close: Handle<Image>,
+    #[asset(path = "textures/dot.png")]
+    pub dot: Handle<Image>,
     #[asset(path = "textures/blank-check-box.png")]
-    pub blank_check: Handle<Image>,#[asset(path = "textures/check.png")]
+    pub blank_check: Handle<Image>,
+    #[asset(path = "textures/check.png")]
     pub check: Handle<Image>,
 }
 

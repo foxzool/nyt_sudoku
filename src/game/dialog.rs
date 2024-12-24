@@ -1,6 +1,7 @@
 use crate::color::{DARK_BLACK, WHITE_COLOR};
 use crate::loading::{FontAssets, TextureAssets};
 use crate::GameState;
+use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::window::WindowFocused;
 
@@ -195,7 +196,7 @@ fn spawn_hint(
                     builder.spawn((
                         Text::new("Fill each 3 x 3 set with numbers 1–9."),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: 16.0,
                             font: font_assets.franklin_600.clone(),
                             ..default()
                         },
@@ -203,79 +204,87 @@ fn spawn_hint(
                     ));
 
                     builder
-                        .spawn((Node {
+                        .spawn((
+                            Name::new("list"),
+                            Node {
                             display: Display::Flex,
                             flex_direction: FlexDirection::Column,
-                            margin: UiRect::all(Val::Px(16.0)),
-                            padding: UiRect {
-                                left: Val::Px(20.0),
-                                ..default()
-                            },
+                            margin: UiRect::vertical(Val::Px(16.0)),
                             ..default()
-                        },))
+                        },
+                                // BackgroundColor(YELLOW.into()),
+                        ))
                         .with_children(|builder| {
-                            builder.spawn((
-                                Text::new("Tap a cell in any set, then select a number."),
-                                TextFont {
-                                    font_size: 16.0,
-                                    font: font_assets.franklin_600.clone(),
-                                    ..default()
-                                },
-                                TextColor(*DARK_BLACK),
-                            ));
-
-                            builder.spawn((
-                                Text::new("Fill cells until the board is complete. Numbers in sets, rows or columns cannot repeat."),
-                                TextFont {
-                                    font_size: 16.0,
-                                    font: font_assets.franklin_600.clone(),
-                                    ..default()
-                                },
-                                TextColor(*DARK_BLACK),
-                            ));
-
-                            builder.spawn((
-                                Text::new("Note: Each number can only appear on the board 9 times."),
-                                TextFont {
-                                    font_size: 16.0,
-                                    font: font_assets.franklin_600.clone(),
-                                    ..default()
-                                },
-                                TextColor(*DARK_BLACK),
-                            ));
+                            ui_list(font_assets, texture_assets, builder, "Tap a cell in any set, then select a number.");
+                            ui_list(font_assets, texture_assets, builder, "Fill cells until the board is complete. Numbers in sets, rows or columns cannot repeat.");
+                            ui_list(font_assets, texture_assets, builder, "Note: Each number can only appear on the board 9 times.");
                         });
 
                     builder.spawn((
-                        Text::new("How to play Sudoku"),
+                        Text::new("Play modes and tips"),
                         TextFont {
-                            font_size: 16.0,
-                            font: font_assets.franklin_600.clone(),
+                            font_size: 28.0,
+                            font: font_assets.karnak.clone(),
                             ..default()
                         },
                         TextColor(*DARK_BLACK),
                     ));
 
-                    builder.spawn((
-                        Text::new("How to play Sudoku"),
-                        TextFont {
-                            font_size: 16.0,
-                            font: font_assets.franklin_600.clone(),
-                            ..default()
-                        },
-                        TextColor(*DARK_BLACK),
-                    ));
-
-                    builder.spawn((
-                        Text::new("How to play Sudoku"),
-                        TextFont {
-                            font_size: 16.0,
-                            font: font_assets.franklin_600.clone(),
-                            ..default()
-                        },
-                        TextColor(*DARK_BLACK),
-                    ));
+                    builder
+                        .spawn((
+                            Name::new("list"),
+                            Node {
+                                display: Display::Flex,
+                                flex_direction: FlexDirection::Column,
+                                margin: UiRect::vertical(Val::Px(16.0)),
+                                ..default()
+                            },
+                            // BackgroundColor(YELLOW.into()),
+                        ))
+                        .with_children(|builder| {
+                            ui_list(font_assets, texture_assets, builder, "Normal mode: Add 1 number to a cell.");
+                            ui_list(font_assets, texture_assets, builder, "Fill cells until the board is complete. Numbers in sets, rows or columns cannot repeat.");
+                            ui_list(font_assets, texture_assets, builder, "Candidate mode: Add several numbers to a cell (for multiple options).");
+                            ui_list(font_assets, texture_assets, builder, "Need a clue? Tap -> \"Hint\" to see the next logical cell to solve.");
+                            ui_list(font_assets, texture_assets, builder, "Choose from 3 levels — easy, medium and hard. To change levels, tap \"Back\" in the toolbar.");
+                            ui_list(font_assets, texture_assets, builder, "New puzzles for each level are released daily: Sunday–Thursday at 10 p.m. E.T.; Friday–Saturday at 6 p.m. E.T.");
+                        });
                 });
         });
+}
+
+fn ui_list(font_assets: &Res<FontAssets>, texture_assets: &Res<TextureAssets>, builder: &mut ChildBuilder, text: &str) {
+    builder.spawn(Node {
+        display: Display::Flex,
+        // align_items: AlignItems::Center,
+        ..default()
+    }).with_children(|builder| {
+        builder.spawn((
+            ImageNode {
+                image: texture_assets.dot.clone(),
+                ..default()
+            },
+            Node {
+                margin: UiRect {
+                    top: Val::Px(4.0),
+                    ..default()
+                },
+                height: Val::Px(18.0),
+                width: Val::Px(18.0),
+                ..default()
+            },
+        ));
+
+        builder.spawn((
+            Text::new(text),
+            TextFont {
+                font_size: 16.0,
+                font: font_assets.franklin_600.clone(),
+                ..default()
+            },
+            TextColor(*DARK_BLACK),
+        ));
+    });
 }
 
 fn check_window_focus(mut windows: EventReader<WindowFocused>, mut commands: Commands) {

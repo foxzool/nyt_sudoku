@@ -11,8 +11,8 @@ pub(super) fn plugin(app: &mut App) {
         (check_window_focus, fade_in_animation, fade_out_animation)
             .run_if(in_state(GameState::Playing)),
     )
-    .add_observer(on_pause_game)
-    .add_observer(on_hint);
+        .add_observer(on_pause_game)
+        .add_observer(on_hint);
 }
 
 pub(crate) fn dialog_container(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
@@ -177,7 +177,7 @@ fn spawn_hint(
                         display: Display::Flex,
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
-                        margin: UiRect::all(Val::Px(16.0)),
+                        // margin: UiRect::all(Val::Px(16.0)),
                         ..default()
                     },
                     // BackgroundColor(*DARK_BLACK),
@@ -207,12 +207,12 @@ fn spawn_hint(
                         .spawn((
                             Name::new("list"),
                             Node {
-                            display: Display::Flex,
-                            flex_direction: FlexDirection::Column,
-                            margin: UiRect::vertical(Val::Px(16.0)),
-                            ..default()
-                        },
-                                // BackgroundColor(YELLOW.into()),
+                                display: Display::Flex,
+                                flex_direction: FlexDirection::Column,
+                                margin: UiRect::vertical(Val::Px(16.0)),
+                                ..default()
+                            },
+                            // BackgroundColor(YELLOW.into()),
                         ))
                         .with_children(|builder| {
                             ui_list(font_assets, texture_assets, builder, "Tap a cell in any set, then select a number.");
@@ -249,42 +249,78 @@ fn spawn_hint(
                             ui_list(font_assets, texture_assets, builder, "Choose from 3 levels — easy, medium and hard. To change levels, tap \"Back\" in the toolbar.");
                             ui_list(font_assets, texture_assets, builder, "New puzzles for each level are released daily: Sunday–Thursday at 10 p.m. E.T.; Friday–Saturday at 6 p.m. E.T.");
                         });
+
+
+                    builder.spawn((
+                        Name::new("hint-feedback"),
+                        Node {
+                            ..default()
+                        },
+                    )).with_children(|builder| {
+                        builder.spawn((
+                            Text::new("Have feedback? "),
+                            TextFont {
+                                font_size: 16.0,
+                                font: font_assets.franklin_600.clone(),
+                                ..default()
+                            },
+                            TextColor(*DARK_BLACK),
+                        ));
+
+                        builder.spawn((
+                            Text::new("Email us"),
+                            TextFont {
+                                font_size: 16.0,
+                                font: font_assets.franklin_600.clone(),
+                                ..default()
+                            },
+                            TextColor(*DARK_BLACK),
+                        ));
+                    })
+                    ;
                 });
         });
 }
 
-fn ui_list(font_assets: &Res<FontAssets>, texture_assets: &Res<TextureAssets>, builder: &mut ChildBuilder, text: &str) {
-    builder.spawn(Node {
-        display: Display::Flex,
-        // align_items: AlignItems::Center,
-        ..default()
-    }).with_children(|builder| {
-        builder.spawn((
-            ImageNode {
-                image: texture_assets.dot.clone(),
-                ..default()
-            },
-            Node {
-                margin: UiRect {
-                    top: Val::Px(4.0),
+fn ui_list(
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildBuilder,
+    text: &str,
+) {
+    builder
+        .spawn(Node {
+            display: Display::Flex,
+            // align_items: AlignItems::Center,
+            ..default()
+        })
+        .with_children(|builder| {
+            builder.spawn((
+                ImageNode {
+                    image: texture_assets.dot.clone(),
                     ..default()
                 },
-                height: Val::Px(18.0),
-                width: Val::Px(18.0),
-                ..default()
-            },
-        ));
+                Node {
+                    margin: UiRect {
+                        top: Val::Px(4.0),
+                        ..default()
+                    },
+                    height: Val::Px(18.0),
+                    width: Val::Px(18.0),
+                    ..default()
+                },
+            ));
 
-        builder.spawn((
-            Text::new(text),
-            TextFont {
-                font_size: 16.0,
-                font: font_assets.franklin_600.clone(),
-                ..default()
-            },
-            TextColor(*DARK_BLACK),
-        ));
-    });
+            builder.spawn((
+                Text::new(text),
+                TextFont {
+                    font_size: 16.0,
+                    font: font_assets.franklin_600.clone(),
+                    ..default()
+                },
+                TextColor(*DARK_BLACK),
+            ));
+        });
 }
 
 fn check_window_focus(mut windows: EventReader<WindowFocused>, mut commands: Commands) {

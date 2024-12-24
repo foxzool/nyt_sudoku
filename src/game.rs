@@ -167,7 +167,7 @@ fn toolbars(
                 ..default()
             },
             BorderColor(*EXTRA_LIGHT_GRAY),
-            BackgroundColor(WHITE_COLOR),
+
         ))
         .with_children(|builder| {
             builder
@@ -176,7 +176,8 @@ fn toolbars(
                     Node {
                         width: Val::Percent(100.0),
                         max_width: Val::Px(1280.0),
-                        margin: UiRect::axes(Val::Auto, Val::Px(12.0)),
+                        height: Val::Px(55.0),
+                        margin: UiRect::axes(Val::Auto, Val::Px(0.0)),
                         padding: UiRect::axes(Val::Px(24.0), Val::Px(0.0)),
                         display: Display::Flex,
                         flex_wrap: FlexWrap::NoWrap,
@@ -206,14 +207,19 @@ fn right_bar(
             Name::new("right-bar"),
             Node {
                 width: Val::Px(350.0),
+
                 margin: UiRect {
                     left: Val::Auto,
+                    top: Val::Px(14.0),
+                    bottom: Val::Px(14.0),
                     ..default()
                 },
+                padding: UiRect::all(Val::Px(4.0)),
                 display: Display::Flex,
                 justify_content: JustifyContent::FlexEnd,
                 ..default()
             },
+            // BackgroundColor(Color::linear_rgba(0.1, 0.95, 0.95, 0.5)),
         ))
         .with_children(|builder| {
             builder

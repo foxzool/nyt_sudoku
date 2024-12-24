@@ -1,5 +1,5 @@
-use crate::game::dialog::dialog_container;
 use crate::game::dialog::PauseGame;
+use crate::game::dialog::{dialog_container, ShowHint};
 use crate::{
     color::*,
     game::{
@@ -216,21 +216,27 @@ fn right_bar(
             },
         ))
         .with_children(|builder| {
-            builder.spawn((
-                ImageNode {
-                    image: texture_assets.question.clone(),
-                    ..default()
-                },
-                Node {
-                    width: Val::Px(20.0),
-                    margin: UiRect {
-                        left: Val::Px(10.0),
-                        right: Val::Px(10.0),
+            builder
+                .spawn((
+                    ImageNode {
+                        image: texture_assets.question.clone(),
                         ..default()
                     },
-                    ..default()
-                },
-            ));
+                    Node {
+                        width: Val::Px(20.0),
+                        margin: UiRect {
+                            left: Val::Px(10.0),
+                            right: Val::Px(10.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                ))
+                .observe(
+                    |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+                        commands.trigger(ShowHint(true));
+                    },
+                );
 
             builder.spawn((
                 ImageNode {

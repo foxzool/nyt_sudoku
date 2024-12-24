@@ -18,6 +18,7 @@ pub(crate) fn dialog_container(font_assets: &Res<FontAssets>, builder: &mut Chil
         .spawn((
             Name::new("dialog-container"),
             DialogContainer,
+            Visibility::Hidden,
             Node {
                 display: Display::Flex,
                 height: Val::Percent(100.0),
@@ -142,19 +143,19 @@ fn on_pause_game(
     ev: Trigger<PauseGame>,
     mut time: ResMut<Time<Virtual>>,
     mut commands: Commands,
-    mut q_pause: Single<(Entity, &mut Visibility), With<PauseContainer>>,
+    mut q_pause: Single<Entity, With<PauseContainer>>,
+    mut q_dialog: Single<&mut Visibility, With<DialogContainer>>,
 ) {
-    let (entity, mut visibility) = q_pause.into_inner();
     if ev.event().0 {
         time.pause();
-        // *visibility = Visibility::Visible;
+        **q_dialog = Visibility::Visible;
         let fade_in = FadeIn(Timer::from_seconds(0.2, TimerMode::Once));
-        commands.entity(entity).insert(fade_in);
+        commands.entity(*q_pause).insert(fade_in);
     } else {
         time.unpause();
-        // *visibility = Visibility::Hidden;
+        **q_dialog = Visibility::Hidden;
         let fade_out = FadeOut(Timer::from_seconds(0.2, TimerMode::Once));
-        commands.entity(entity).insert(fade_out);
+        commands.entity(*q_pause).insert(fade_out);
     }
 }
 

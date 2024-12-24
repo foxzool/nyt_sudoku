@@ -1,5 +1,5 @@
 use crate::game::dialog::dialog_container;
-use crate::game::dialog::{PauseContainer, PauseGame};
+use crate::game::dialog::PauseGame;
 use crate::{
     color::*,
     game::{
@@ -15,7 +15,6 @@ use crate::{
     loading::{FontAssets, TextureAssets},
     GameState,
 };
-use bevy::animation::{animated_field, AnimationTarget, AnimationTargetId};
 use bevy::color::palettes::basic::RED;
 use bevy::prelude::*;
 use bevy::time::Stopwatch;

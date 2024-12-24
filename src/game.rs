@@ -95,10 +95,10 @@ fn setup_ui(
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 display: Display::Flex,
-                margin: UiRect {
-                    top: Val::Px(24.0),
-                    ..default()
-                },
+                // margin: UiRect {
+                //     top: Val::Px(24.0),
+                //     ..default()
+                // },
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::FlexStart,
 

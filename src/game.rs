@@ -15,6 +15,7 @@ use crate::{
     loading::{FontAssets, TextureAssets},
     GameState,
 };
+use bevy::animation::{animated_field, AnimationTarget, AnimationTargetId};
 use bevy::color::palettes::basic::RED;
 use bevy::prelude::*;
 use bevy::time::Stopwatch;
@@ -27,8 +28,8 @@ use sudoku::Sudoku;
 mod board;
 mod cell_state;
 mod control_tab;
-mod input;
 mod dialog;
+mod input;
 mod position;
 
 pub struct SudokuPlugin;
@@ -152,8 +153,6 @@ fn setup_ui(
                 });
         });
 }
-
-
 
 fn toolbars(
     font_assets: &Res<FontAssets>,

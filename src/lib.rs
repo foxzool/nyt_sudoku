@@ -9,6 +9,7 @@ use crate::game::SudokuPlugin;
 use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 
+use crate::color::WHITE_COLOR;
 use bevy::app::App;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -32,6 +33,7 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameState>()
+            .insert_resource(ClearColor(WHITE_COLOR))
             .add_plugins((LoadingPlugin, MenuPlugin, SudokuPlugin));
 
         #[cfg(debug_assertions)]

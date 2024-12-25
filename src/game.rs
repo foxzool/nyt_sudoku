@@ -271,7 +271,6 @@ fn right_bar(
                 })
                 .observe(
                     |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-                        println!("show more");
                         commands.trigger(ShowMore(true));
                     },
                 );
@@ -924,6 +923,7 @@ fn more_item(
                 },
                 ..default()
             },
+            BackgroundColor(WHITE_COLOR),
             BorderColor(*GRAY),
             GlobalZIndex(999),
         ))
@@ -938,6 +938,22 @@ fn more_item(
                 TextColor(*DARK_BLACK),
             ));
         })
+        .observe(
+            |trigger: Trigger<Pointer<Over>>, mut item: Query<&mut BackgroundColor>| {
+                let entity = trigger.entity();
+                if let Ok(mut item) = item.get_mut(entity) {
+                    item.0 = *EXTRA_LIGHT_GRAY;
+                }
+            },
+        )
+        .observe(
+            |trigger: Trigger<Pointer<Out>>, mut item: Query<&mut BackgroundColor>| {
+                let entity = trigger.entity();
+                if let Ok(mut item) = item.get_mut(entity) {
+                    item.0 = WHITE_COLOR;
+                }
+            },
+        )
         .observe(trigger);
 }
 

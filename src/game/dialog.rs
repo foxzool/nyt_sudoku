@@ -1,7 +1,6 @@
 use crate::color::{DARK_BLACK, WHITE_COLOR};
 use crate::loading::{FontAssets, TextureAssets};
 use crate::GameState;
-use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::window::WindowFocused;
 
@@ -11,8 +10,8 @@ pub(super) fn plugin(app: &mut App) {
         (check_window_focus, fade_in_animation, fade_out_animation)
             .run_if(in_state(GameState::Playing)),
     )
-        .add_observer(on_pause_game)
-        .add_observer(on_hint);
+    .add_observer(on_pause_game)
+    .add_observer(on_hint);
 }
 
 pub(crate) fn dialog_container(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
@@ -36,10 +35,9 @@ pub(crate) fn dialog_container(font_assets: &Res<FontAssets>, builder: &mut Chil
             ZIndex(999),
             // BackgroundColor(RED.into()),
         ))
-        .with_children(|builder| {
-            // spawn_pause(font_assets, builder);
-            //
-            // spawn_hint(font_assets, builder);
+        .observe(|_: Trigger<Pointer<Click>>, mut commands: Commands| {
+            commands.trigger(PauseGame(false));
+            commands.trigger(ShowHint(false));
         });
 }
 

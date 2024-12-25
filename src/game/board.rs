@@ -1,6 +1,7 @@
 use crate::color::*;
 use crate::game::cell_state::{
     AutoCandidateCellMarker, CandidateMarker, CandidatesValue, ManualCandidateCellMarker,
+    RevealedCell,
 };
 use crate::game::cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates};
 use crate::game::position::CellPosition;
@@ -342,22 +343,22 @@ fn on_click_cell(
 }
 
 fn show_digit_cell(
-    q_cell: Query<(Entity, &DigitValueCell, &CellMode)>,
+    q_cell: Query<(Entity, &DigitValueCell, &CellMode, Option<&RevealedCell>)>,
     children: Query<&Children>,
-    mut digit_cell: Query<(&mut Text, &mut Visibility), With<DigitCellContainer>>,
+    mut digit_cell: Query<(&mut Text, &mut Visibility, &mut TextColor), With<DigitCellContainer>>,
 ) {
-    for (entity, digit_value, cell_mode) in q_cell.iter() {
+    for (entity, digit_value, cell_mode, opt_revealed) in q_cell.iter() {
         for child in children.iter_descendants(entity) {
-            if let Ok((mut text, mut visibility)) = digit_cell.get_mut(child) {
+            if let Ok((mut text, mut visibility, mut text_color)) = digit_cell.get_mut(child) {
                 if let CellMode::Digit = cell_mode {
                     if let Some(digit) = digit_value.0 {
                         text.0 = digit.get().to_string();
-                    } else {
-                        *visibility = Visibility::Hidden;
-                        text.0 = "".to_string();
-                        continue;
                     }
                     *visibility = Visibility::Visible;
+                    if opt_revealed.is_some() {
+                        text_color.0 = *ACCENT_BLUE;
+                    }
+
                 } else {
                     *visibility = Visibility::Hidden;
                 }

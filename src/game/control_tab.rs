@@ -480,14 +480,15 @@ fn mouse_click_control_digit(
     q_cell: Query<&ControlNumber>,
     mut commands: Commands,
     selected_tab: Res<SelectedTab>,
+    q_selected: Single<Entity, With<SelectedCell>>,
 ) {
     if let Ok(cell_value) = q_cell.get(trigger.entity()) {
         match selected_tab.0 {
             ControlTab::Normal => {
-                commands.send_event(NewDigit::new(cell_value.0));
+                commands.trigger_targets(NewDigit::new(cell_value.0), vec![*q_selected]);
             }
             ControlTab::Candidate => {
-                commands.send_event(NewCandidate::new(cell_value.0));
+                commands.trigger_targets(NewCandidate::new(cell_value.0), vec![*q_selected]);
             }
         }
     }

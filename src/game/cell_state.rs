@@ -137,3 +137,7 @@ pub trait CandidateMarker: Component {
 
     fn set_selected(&mut self, selected: bool);
 }
+
+
+#[derive(Component)]
+pub struct RevealedCell;

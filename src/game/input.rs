@@ -1,13 +1,20 @@
-use crate::game::{control_tab::ToggleTab, CleanCell, MoveSelectCell, NewCandidate, NewDigit, SelectedCell};
+use crate::game::{
+    control_tab::ToggleTab, CleanCell, MoveSelectCell, NewCandidate, NewDigit, SelectedCell,
+};
 use bevy::prelude::*;
 
 pub(crate) fn keyboard_input(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    q_selected: Single<Entity, With<SelectedCell>>
+    q_selected: Query<Entity, With<SelectedCell>>,
 ) {
+    let q_selected = match q_selected.iter().next() {
+        Some(e) => e,
+        None => return,
+    };
+
     if keyboard_input.just_pressed(KeyCode::Delete) {
-        commands.trigger_targets(CleanCell, vec![*q_selected]);
+        commands.trigger_targets(CleanCell, vec![q_selected]);
         return;
     }
 
@@ -64,9 +71,9 @@ pub(crate) fn keyboard_input(
 
     if let Some(num) = num {
         if alt {
-            commands.send_event(NewCandidate::new(num));
+            commands.trigger_targets(NewCandidate::new(num), vec![q_selected]);
         } else {
-            commands.send_event(NewDigit::new(num));
+            commands.trigger_targets(NewDigit::new(num), vec![q_selected]);
         }
     }
 }

@@ -1,3 +1,4 @@
+use crate::game::cell_state::RevealedCell;
 use crate::game::dialog::{dialog_container, ShowHint};
 use crate::game::dialog::{DialogContainer, PauseGame};
 use crate::share::title_bar;
@@ -44,7 +45,6 @@ impl Plugin for SudokuPlugin {
         dialog::plugin(app);
         app.init_resource::<AutoCandidateMode>()
             .add_event::<MoveSelectCell>()
-            .add_event::<NewDigit>()
             .add_event::<NewCandidate>()
             .add_event::<RemoveDigit>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
@@ -57,24 +57,26 @@ impl Plugin for SudokuPlugin {
                     keyboard_move_cell,
                     show_conflict,
                     kick_candidates,
-                    on_new_digit,
-                    on_new_candidate,
-                    check_solver,
                 )
                     .run_if(in_state(GameState::Playing)),
             )
+            .add_observer(check_solver)
+            .add_observer(on_new_digit)
+            .add_observer(on_new_candidate)
             .add_observer(check_conflict)
             .add_observer(on_clean_cell)
             .add_observer(on_select_cell)
             .add_observer(remove_conflict)
             .add_observer(on_unselect_cell)
             .add_observer(on_reset_puzzle)
+            .add_observer(on_reveal_cell)
             .add_observer(on_show_more);
     }
 }
 
 #[derive(Resource, Debug)]
 pub struct SudokuManager {
+    pub solution: Sudoku,
     pub solver: StrategySolver,
 }
 
@@ -448,11 +450,19 @@ pub struct ManualCandidatesContainer;
 pub struct AutoCandidatesContainer;
 
 fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosition)>) {
-    let sudoku = Sudoku::generate();
+    let (sudoku, solution) = loop {
+        let sudoku = Sudoku::generate();
+        if let Some(solution) = sudoku.solution() {
+            break (sudoku, solution);
+        }
+    };
+
     info!("sudoku: {:?}", sudoku);
 
     let solver = StrategySolver::from_sudoku(sudoku.clone());
+
     commands.insert_resource(SudokuManager {
+        solution,
         solver: solver.clone(),
     });
 
@@ -505,32 +515,35 @@ fn on_unselect_cell(
 }
 
 fn on_new_digit(
-    mut ev: EventReader<NewDigit>,
+    trigger: Trigger<NewDigit>,
     mut q_cell: Query<
         (&mut DigitValueCell, &mut CellMode),
-        (With<SelectedCell>, Without<FixedCell>),
+        (
+            With<SelectedCell>,
+            Without<FixedCell>,
+            Without<RevealedCell>,
+        ),
     >,
     mut commands: Commands,
 ) {
-    for new_digit in ev.read() {
-        for (mut cell_value, mut cell_mode) in q_cell.iter_mut() {
-            *cell_mode = CellMode::Digit;
-            let new_digit = new_digit.0;
+    let entity = trigger.entity();
+    let new_digit = trigger.event().0;
+    if let Ok((mut cell_value, mut cell_mode)) = q_cell.get_mut(entity) {
+        *cell_mode = CellMode::Digit;
 
-            if let Some(old_digit) = cell_value.0 {
-                if old_digit != new_digit {
-                    commands.trigger(RemoveDigit(old_digit));
-                }
+        if let Some(old_digit) = cell_value.0 {
+            if old_digit != new_digit {
+                commands.trigger(RemoveDigit(old_digit));
             }
-
-            cell_value.0 = Some(new_digit);
-            commands.trigger(CheckDigitConflict)
         }
+
+        cell_value.0 = Some(new_digit);
+        commands.trigger(CheckDigitConflict)
     }
 }
 
 fn on_new_candidate(
-    mut trigger: EventReader<NewCandidate>,
+    mut trigger: Trigger<NewCandidate>,
     mut q_cell: Query<
         (
             &mut DigitValueCell,
@@ -538,40 +551,42 @@ fn on_new_candidate(
             &mut AutoCandidates,
             &mut CellMode,
         ),
-        (With<SelectedCell>, Without<FixedCell>),
+        (
+            With<SelectedCell>,
+            Without<FixedCell>,
+            Without<RevealedCell>,
+        ),
     >,
     auto_mode: Res<AutoCandidateMode>,
     mut commands: Commands,
 ) {
-    for new_candidate in trigger.read() {
-        let new_candidate = new_candidate.0;
+    let new_candidate = trigger.event().0;
 
-        for (mut digit_value, mut manual_candidates, mut auto_candidates, mut cell_mode) in
-            q_cell.iter_mut()
-        {
-            debug!("new candidate: {:?}", new_candidate);
-            match cell_mode.as_ref() {
-                CellMode::Digit => {
-                    if let Some(digit) = digit_value.0 {
-                        commands.trigger(RemoveDigit(digit));
-                    }
-                    digit_value.0 = None;
-                    if **auto_mode {
-                        *cell_mode = CellMode::AutoCandidates;
-                        auto_candidates.insert(new_candidate);
-                    } else {
-                        *cell_mode = CellMode::ManualCandidates;
-                        manual_candidates.insert(new_candidate);
-                    }
+    for (mut digit_value, mut manual_candidates, mut auto_candidates, mut cell_mode) in
+        q_cell.iter_mut()
+    {
+        debug!("new candidate: {:?}", new_candidate);
+        match cell_mode.as_ref() {
+            CellMode::Digit => {
+                if let Some(digit) = digit_value.0 {
+                    commands.trigger(RemoveDigit(digit));
                 }
-                CellMode::AutoCandidates => {
+                digit_value.0 = None;
+                if **auto_mode {
                     *cell_mode = CellMode::AutoCandidates;
                     auto_candidates.insert(new_candidate);
-                }
-                CellMode::ManualCandidates => {
+                } else {
                     *cell_mode = CellMode::ManualCandidates;
                     manual_candidates.insert(new_candidate);
                 }
+            }
+            CellMode::AutoCandidates => {
+                *cell_mode = CellMode::AutoCandidates;
+                auto_candidates.insert(new_candidate);
+            }
+            CellMode::ManualCandidates => {
+                *cell_mode = CellMode::ManualCandidates;
+                manual_candidates.insert(new_candidate);
             }
         }
     }
@@ -586,7 +601,7 @@ fn on_clean_cell(
             &mut ManualCandidates,
             &mut CellMode,
         ),
-        (Without<FixedCell>),
+        (Without<FixedCell>, Without<RevealedCell>),
     >,
     auto_mode: Res<AutoCandidateMode>,
     children: Query<&Children>,
@@ -621,26 +636,24 @@ fn on_clean_cell(
 }
 
 fn check_solver(
-    mut _trigger: EventReader<NewDigit>,
+    mut _trigger: Trigger<NewDigit>,
     cell_query: Query<(&DigitValueCell, &CellPosition)>,
     mut sudoku_manager: ResMut<SudokuManager>,
 ) {
-    for _ in _trigger.read() {
-        let mut list = [CellState::Candidates(Set::NONE); 81];
-        for (cell_value, cell_position) in cell_query
-            .iter()
-            .sort_by::<&CellPosition>(|t1, t2| t1.0.cmp(&t2.0))
-        {
-            if let Some(digit) = cell_value.0 {
-                list[cell_position.0 as usize] = CellState::Digit(digit);
-            }
+    let mut list = [CellState::Candidates(Set::NONE); 81];
+    for (cell_value, cell_position) in cell_query
+        .iter()
+        .sort_by::<&CellPosition>(|t1, t2| t1.0.cmp(&t2.0))
+    {
+        if let Some(digit) = cell_value.0 {
+            list[cell_position.0 as usize] = CellState::Digit(digit);
         }
+    }
 
-        sudoku_manager.solver = StrategySolver::from_grid_state(list);
+    sudoku_manager.solver = StrategySolver::from_grid_state(list);
 
-        if sudoku_manager.solver.is_solved() {
-            info!("Sudoku solved!");
-        }
+    if sudoku_manager.solver.is_solved() {
+        info!("Sudoku solved!");
     }
 }
 
@@ -872,6 +885,7 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 "Reveal Cell",
                 |_: Trigger<Pointer<Click>>, mut commands| {
                     commands.trigger(ShowMore(false));
+                    commands.trigger(RevealCell);
                 },
             );
             more_item(
@@ -998,7 +1012,10 @@ fn on_reset_puzzle(
                 conflict_count.clear();
             }
         }
-        commands.entity(entity).remove::<SelectedCell>();
+        commands
+            .entity(entity)
+            .remove::<SelectedCell>()
+            .remove::<RevealedCell>();
         entities.push(entity);
     }
 
@@ -1035,6 +1052,26 @@ fn on_reset_puzzle(
 
                 continue 'l;
             }
+        }
+    }
+}
+
+#[derive(Event)]
+struct RevealCell;
+
+fn on_reveal_cell(
+    _trigger: Trigger<RevealCell>,
+    q_select: Single<(Entity, &CellPosition), With<SelectedCell>>,
+    sudoku_manager: Res<SudokuManager>,
+    mut commands: Commands,
+) {
+    let (entity, cell_position) = q_select.into_inner();
+
+    for (index, num) in sudoku_manager.solution.iter().enumerate() {
+        if cell_position.0 == index as u8 {
+            let num = num.unwrap();
+            commands.trigger_targets(NewDigit::new(num), vec![entity]);
+            commands.entity(entity).insert(RevealedCell);
         }
     }
 }

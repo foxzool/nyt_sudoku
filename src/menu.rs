@@ -1,3 +1,4 @@
+use crate::color::DARK_BLACK;
 use crate::loading::{FontAssets, TextureAssets};
 use crate::GameState;
 use bevy::prelude::*;
@@ -59,7 +60,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::FlexStart,
                         flex_wrap: FlexWrap::Wrap,
-                        height: Val::Percent(100.),
+                        // height: Val::Percent(100.),
                         padding: UiRect::horizontal(Val::Px(15.0)),
                         ..default()
                     },
@@ -113,7 +114,8 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
                                     ..default()
                                 },
                                 TextColor::BLACK,
-                            ));             children.spawn((
+                            ));
+                            children.spawn((
                                 Text::new("minus the math."),
                                 TextFont {
                                     font_size: 36.0,
@@ -127,32 +129,47 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
                                         ..default()
                                     },
                                     ..default()
-                                }
+                                },
                             ));
 
-                            let button_colors = ButtonColors::default();
-                            children
-                                .spawn((
-                                    Button,
-                                    Node {
-                                        width: Val::Px(140.0),
-                                        height: Val::Px(50.0),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        ..Default::default()
-                                    },
-                                    BackgroundColor(button_colors.normal),
-                                    button_colors,
-                                    ChangeState(GameState::Playing),
-                                ))
-                                .with_child((
-                                    Text::new("Easy"),
-                                    TextFont {
-                                        font_size: 40.0,
+                            children.spawn((
+                                Text::new("Choose Your Puzzle:"),
+                                TextFont {
+                                    font_size: 16.0,
+                                    font: font_assets.franklin_700.clone(),
+                                    ..default()
+                                },
+                                TextColor::BLACK,
+                                Node {
+                                    margin: UiRect {
+                                        bottom: Val::Px(24.0),
                                         ..default()
                                     },
-                                    TextColor(Color::linear_rgb(0.9, 0.9, 0.9)),
-                                ));
+                                    ..default()
+                                },
+                            ));
+
+                            button_list(&font_assets, children, "Easy");
+                            button_list(&font_assets, children, "Medium");
+                            button_list(&font_assets, children, "Hard");
+
+                            let date_str = chrono::Local::now().format("%B %d, %Y").to_string();
+                            children.spawn((
+                                Text::new(date_str),
+                                TextFont {
+                                    font_size: 16.0,
+                                    font: font_assets.franklin_700.clone(),
+                                    ..default()
+                                },
+                                TextColor::BLACK,
+                                Node {
+                                    margin: UiRect {
+                                        top: Val::Px(24.0),
+                                        ..default()
+                                    },
+                                    ..default()
+                                },
+                            ));
                         });
                 });
         });
@@ -224,7 +241,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
                         normal: Color::NONE,
                         hovered: Color::linear_rgb(0.25, 0.25, 0.25),
                     },
-                    OpenLink("https://github.com/NiklasEi/bevy_game_template"),
+                    OpenLink("https://github.com/foxzool/bevy_sudoku"),
                 ))
                 .with_children(|parent| {
                     parent.spawn((
@@ -244,6 +261,44 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
                     ));
                 });
         });
+}
+
+fn button_list(font_assets: &Res<FontAssets>, children: &mut ChildBuilder, text: &str) {
+    let button_colors = ButtonColors {
+        normal: *DARK_BLACK,
+        hovered: *DARK_BLACK,
+    };
+    children
+        .spawn((
+            Button,
+            Node {
+                height: Val::Px(44.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                margin: UiRect {
+                    left: Val::Px(10.0),
+                    right: Val::Px(10.0),
+                    bottom: Val::Px(8.0),
+                    ..default()
+                },
+                padding: UiRect::axes(Val::Px(16.0), Val::Px(1.0)),
+                min_width: Val::Px(150.0),
+                ..Default::default()
+            },
+            BorderRadius::all(Val::Px(24.0)),
+            BackgroundColor(button_colors.normal),
+            button_colors,
+            ChangeState(GameState::Playing),
+        ))
+        .with_child((
+            Text::new(text),
+            TextFont {
+                font_size: 16.0,
+                font: font_assets.franklin_600.clone(),
+                ..default()
+            },
+            TextColor(Color::linear_rgb(0.9, 0.9, 0.9)),
+        ));
 }
 
 #[derive(Component)]

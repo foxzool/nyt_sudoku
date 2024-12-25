@@ -1,6 +1,6 @@
-use crate::share::title_bar;
-use crate::game::dialog::PauseGame;
 use crate::game::dialog::{dialog_container, ShowHint};
+use crate::game::dialog::{DialogContainer, PauseGame};
+use crate::share::title_bar;
 use crate::{
     color::*,
     game::{
@@ -68,7 +68,8 @@ impl Plugin for SudokuPlugin {
             .add_observer(check_conflict)
             .add_observer(on_select_cell)
             .add_observer(remove_conflict)
-            .add_observer(on_unselect_cell);
+            .add_observer(on_unselect_cell)
+            .add_observer(on_show_more);
     }
 }
 
@@ -202,7 +203,7 @@ fn toolbars(
 }
 
 fn right_bar(
-    _font_assets: &Res<FontAssets>,
+    font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
     builder: &mut ChildBuilder,
 ) {
@@ -248,21 +249,32 @@ fn right_bar(
                     },
                 );
 
-            builder.spawn((
-                ImageNode {
-                    image: texture_assets.more.clone(),
-                    ..default()
-                },
-                Node {
-                    width: Val::Px(20.0),
-                    margin: UiRect {
-                        left: Val::Px(10.0),
-                        right: Val::Px(10.0),
+            builder
+                .spawn((
+                    Name::new("how to"),
+                    ImageNode {
+                        image: texture_assets.more.clone(),
                         ..default()
                     },
-                    ..default()
-                },
-            ));
+                    Node {
+                        width: Val::Px(20.0),
+                        margin: UiRect {
+                            left: Val::Px(10.0),
+                            right: Val::Px(10.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                ))
+                .with_children(|builder| {
+                    spawn_show_more(&font_assets, builder);
+                })
+                .observe(
+                    |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+                        println!("show more");
+                        commands.trigger(ShowMore(true));
+                    },
+                );
 
             builder.spawn((
                 ImageNode {
@@ -408,7 +420,6 @@ fn left_bar(
                 );
         });
 }
-
 
 ///  选中的格子
 #[derive(Component)]
@@ -809,4 +820,138 @@ fn update_game_time(
 ) {
     game_timer.tick(time.delta());
     text.0 = game_timer.to_string();
+}
+
+#[derive(Event)]
+pub struct ShowMore(pub bool);
+
+fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
+    builder
+        .spawn((
+            ShowMoreContainer,
+            Visibility::Hidden,
+            Name::new("show-more-container"),
+            Node {
+                top: Val::Px(30.0),
+                position_type: PositionType::Absolute,
+                width: Val::Px(155.0),
+                border: UiRect::all(Val::Px(1.0)),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            BorderColor(Color::Srgba(Srgba::hex("c4c4c4").unwrap())),
+            BackgroundColor(WHITE_COLOR),
+            GlobalZIndex(99),
+        ))
+        .with_children(|builder| {
+            more_item(
+                font_assets,
+                builder,
+                "Hint",
+                |_: Trigger<Pointer<Click>>, mut commands| {
+                    commands.trigger(ShowMore(false));
+                },
+            );
+            more_item(
+                font_assets,
+                builder,
+                "Check Cell",
+                |_: Trigger<Pointer<Click>>, mut commands| {
+                    commands.trigger(ShowMore(false));
+                },
+            );
+            more_item(
+                font_assets,
+                builder,
+                "Check Puzzle",
+                |_: Trigger<Pointer<Click>>, mut commands| {
+                    commands.trigger(ShowMore(false));
+                },
+            );
+            more_item(
+                font_assets,
+                builder,
+                "Reveal Cell",
+                |_: Trigger<Pointer<Click>>, mut commands| {
+                    commands.trigger(ShowMore(false));
+                },
+            );
+            more_item(
+                font_assets,
+                builder,
+                "Reveal Puzzle",
+                |_: Trigger<Pointer<Click>>, mut commands| {
+                    commands.trigger(ShowMore(false));
+                },
+            );
+            more_item(
+                font_assets,
+                builder,
+                "Reset Puzzle",
+                |_: Trigger<Pointer<Click>>, mut commands| {
+                    commands.trigger(ShowMore(false));
+                },
+            );
+        });
+}
+
+fn more_item(
+    font_assets: &Res<FontAssets>,
+    builder: &mut ChildBuilder,
+    text: &str,
+    trigger: fn(Trigger<Pointer<Click>>, Commands),
+) {
+    builder
+        .spawn((
+            Name::new("show-more-hint"),
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                width: Val::Px(153.0),
+                height: Val::Px(56.0),
+                padding: UiRect {
+                    left: Val::Px(15.0),
+                    right: Val::Px(15.0),
+                    top: Val::Px(6.0),
+                    bottom: Val::Px(4.0),
+                },
+                border: UiRect {
+                    bottom: Val::Px(1.0),
+                    ..default()
+                },
+                ..default()
+            },
+            BorderColor(*GRAY),
+            GlobalZIndex(999),
+        ))
+        .with_children(|builder| {
+            builder.spawn((
+                Text::new(text),
+                TextFont {
+                    font_size: 18.0,
+                    font: font_assets.franklin_500.clone(),
+                    ..default()
+                },
+                TextColor(*DARK_BLACK),
+            ));
+        })
+        .observe(trigger);
+}
+
+#[derive(Component)]
+struct ShowMoreContainer;
+
+fn on_show_more(
+    trigger: Trigger<ShowMore>,
+    mut q_more: Single<&mut Visibility, With<ShowMoreContainer>>,
+) {
+    let ShowMore(show_more) = trigger.event();
+    if *show_more {
+        **q_more = Visibility::Visible;
+    } else {
+        **q_more = Visibility::Hidden;
+    }
 }

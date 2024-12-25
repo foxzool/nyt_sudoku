@@ -23,7 +23,7 @@ fn main() {
                         fit_canvas_to_parent: true,
                         // Tells wasm not to override default event handling, like F5 and Ctrl+R
                         prevent_default_event_handling: false,
-                        resolution: bevy::window::WindowResolution::new(1280., 970.),
+                        resolution: bevy::window::WindowResolution::new(1400., 1000.),
                         ..default()
                     }),
                     ..default()

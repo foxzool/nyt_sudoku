@@ -39,6 +39,7 @@ pub(crate) fn dialog_container(font_assets: &Res<FontAssets>, builder: &mut Chil
             commands.trigger(PauseGame(false));
             commands.trigger(ShowHint(false));
         });
+
 }
 
 fn dialog_child_body() -> (Node, BorderRadius, BoxShadow, BackgroundColor) {

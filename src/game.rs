@@ -57,10 +57,10 @@ impl Plugin for SudokuPlugin {
                     keyboard_move_cell,
                     show_conflict,
                     kick_candidates,
+                    check_solver,
                 )
                     .run_if(in_state(GameState::Playing)),
             )
-            .add_observer(check_solver)
             .add_observer(on_new_digit)
             .add_observer(on_new_candidate)
             .add_observer(check_conflict)
@@ -70,6 +70,7 @@ impl Plugin for SudokuPlugin {
             .add_observer(on_unselect_cell)
             .add_observer(on_reset_puzzle)
             .add_observer(on_reveal_cell)
+            .add_observer(on_reveal_puzzle)
             .add_observer(on_show_more);
     }
 }
@@ -518,11 +519,7 @@ fn on_new_digit(
     trigger: Trigger<NewDigit>,
     mut q_cell: Query<
         (&mut DigitValueCell, &mut CellMode),
-        (
-            With<SelectedCell>,
-            Without<FixedCell>,
-            Without<RevealedCell>,
-        ),
+        (Without<FixedCell>, Without<RevealedCell>),
     >,
     mut commands: Commands,
 ) {
@@ -636,7 +633,6 @@ fn on_clean_cell(
 }
 
 fn check_solver(
-    mut _trigger: Trigger<NewDigit>,
     cell_query: Query<(&DigitValueCell, &CellPosition)>,
     mut sudoku_manager: ResMut<SudokuManager>,
 ) {
@@ -650,9 +646,7 @@ fn check_solver(
         }
     }
 
-    sudoku_manager.solver = StrategySolver::from_grid_state(list);
-
-    if sudoku_manager.solver.is_solved() {
+    if StrategySolver::from_grid_state(list).is_solved() {
         info!("Sudoku solved!");
     }
 }
@@ -859,7 +853,7 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 font_assets,
                 builder,
                 "Hint",
-                |_: Trigger<Pointer<Click>>, mut commands| {
+                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
                     commands.trigger(ShowMore(false));
                 },
             );
@@ -867,7 +861,7 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 font_assets,
                 builder,
                 "Check Cell",
-                |_: Trigger<Pointer<Click>>, mut commands| {
+                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
                     commands.trigger(ShowMore(false));
                 },
             );
@@ -875,7 +869,7 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 font_assets,
                 builder,
                 "Check Puzzle",
-                |_: Trigger<Pointer<Click>>, mut commands| {
+                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
                     commands.trigger(ShowMore(false));
                 },
             );
@@ -883,24 +877,25 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 font_assets,
                 builder,
                 "Reveal Cell",
-                |_: Trigger<Pointer<Click>>, mut commands| {
+                |_: Trigger<Pointer<Click>>, mut commands, q_selected| {
                     commands.trigger(ShowMore(false));
-                    commands.trigger(RevealCell);
+                    commands.trigger_targets(RevealCell, vec![*q_selected]);
                 },
             );
             more_item(
                 font_assets,
                 builder,
                 "Reveal Puzzle",
-                |_: Trigger<Pointer<Click>>, mut commands| {
+                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
                     commands.trigger(ShowMore(false));
+                    commands.trigger(RevealPuzzle);
                 },
             );
             more_item(
                 font_assets,
                 builder,
                 "Reset Puzzle",
-                |_: Trigger<Pointer<Click>>, mut commands| {
+                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
                     commands.trigger(ShowMore(false));
                     commands.trigger(ResetPuzzle);
                 },
@@ -912,7 +907,7 @@ fn more_item(
     font_assets: &Res<FontAssets>,
     builder: &mut ChildBuilder,
     text: &str,
-    trigger: fn(Trigger<Pointer<Click>>, Commands),
+    trigger: fn(Trigger<Pointer<Click>>, Commands, Single<Entity, With<SelectedCell>>),
 ) {
     builder
         .spawn((
@@ -1004,6 +999,7 @@ fn on_reset_puzzle(
     mut commands: Commands,
     mut auto_mode: ResMut<AutoCandidateMode>,
 ) {
+    commands.insert_resource(GameTimer(Stopwatch::new()));
     auto_mode.0 = false;
     let mut entities = vec![];
     for (entity, _, _, _, _, _) in q_cell.iter() {
@@ -1060,18 +1056,33 @@ fn on_reset_puzzle(
 struct RevealCell;
 
 fn on_reveal_cell(
-    _trigger: Trigger<RevealCell>,
-    q_select: Single<(Entity, &CellPosition), With<SelectedCell>>,
+    trigger: Trigger<RevealCell>,
+    q_select: Query<&CellPosition>,
     sudoku_manager: Res<SudokuManager>,
     mut commands: Commands,
 ) {
-    let (entity, cell_position) = q_select.into_inner();
+    let entity = trigger.entity();
 
-    for (index, num) in sudoku_manager.solution.iter().enumerate() {
-        if cell_position.0 == index as u8 {
-            let num = num.unwrap();
-            commands.trigger_targets(NewDigit::new(num), vec![entity]);
-            commands.entity(entity).insert(RevealedCell);
+    if let Ok(cell_position) = q_select.get(entity) {
+        for (index, num) in sudoku_manager.solution.iter().enumerate() {
+            if cell_position.0 == index as u8 {
+                let num = num.unwrap();
+                commands.trigger_targets(NewDigit::new(num), vec![entity]);
+                commands.entity(entity).insert(RevealedCell);
+                return;
+            }
         }
     }
+}
+
+#[derive(Event)]
+struct RevealPuzzle;
+
+fn on_reveal_puzzle(
+    _trigger: Trigger<RevealPuzzle>,
+    q_cell: Query<Entity, (Without<FixedCell>, With<DigitValueCell>)>,
+    mut commands: Commands,
+) {
+    let entities = q_cell.iter().collect::<Vec<_>>();
+    commands.trigger_targets(RevealCell, entities);
 }

@@ -4,6 +4,7 @@ pub mod color;
 mod game;
 mod loading;
 mod menu;
+mod share;
 
 use crate::game::SudokuPlugin;
 use crate::loading::LoadingPlugin;

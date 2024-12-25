@@ -1,5 +1,6 @@
 use crate::color::DARK_BLACK;
 use crate::loading::{FontAssets, TextureAssets};
+use crate::share::title_bar;
 use crate::GameState;
 use bevy::prelude::*;
 use bevy::winit::cursor::CustomCursor::Image;
@@ -42,19 +43,20 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
+                display: Display::Flex,
                 flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
                 ..default()
             },
             Menu,
-            BackgroundColor(Color::srgb_u8(251, 155, 0)),
         ))
         .with_children(|children| {
+            title_bar(&font_assets, children);
             children
                 .spawn((
                     Name::new("menu-container"),
                     Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Vh(90.0),
                         display: Display::Flex,
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
@@ -64,7 +66,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
                         padding: UiRect::horizontal(Val::Px(15.0)),
                         ..default()
                     },
-                    // BackgroundColor(Color::srgb_u8(251, 155,0))
+                    BackgroundColor(Color::srgb_u8(251, 155, 0)),
                 ))
                 .with_children(|children| {
                     children
@@ -149,9 +151,9 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
                                 },
                             ));
 
-                            button_list(&font_assets, children, "Easy");
-                            button_list(&font_assets, children, "Medium");
-                            button_list(&font_assets, children, "Hard");
+                            button_item(&font_assets, children, "Easy");
+                            button_item(&font_assets, children, "Medium");
+                            button_item(&font_assets, children, "Hard");
 
                             let date_str = chrono::Local::now().format("%B %d, %Y").to_string();
                             children.spawn((
@@ -263,7 +265,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
         });
 }
 
-fn button_list(font_assets: &Res<FontAssets>, children: &mut ChildBuilder, text: &str) {
+fn button_item(font_assets: &Res<FontAssets>, children: &mut ChildBuilder, text: &str) {
     let button_colors = ButtonColors {
         normal: *DARK_BLACK,
         hovered: *DARK_BLACK,
@@ -286,7 +288,7 @@ fn button_list(font_assets: &Res<FontAssets>, children: &mut ChildBuilder, text:
                 ..Default::default()
             },
             BorderRadius::all(Val::Px(24.0)),
-            BackgroundColor(button_colors.normal),
+            // BackgroundColor(button_colors.normal),
             button_colors,
             ChangeState(GameState::Playing),
         ))

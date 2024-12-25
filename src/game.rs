@@ -45,8 +45,7 @@ impl Plugin for SudokuPlugin {
         dialog::plugin(app);
         app.init_resource::<AutoCandidateMode>()
             .add_event::<MoveSelectCell>()
-            .add_event::<NewCandidate>()
-            .add_event::<RemoveDigit>()
+            .add_event::<SudokuSolved>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(OnExit(GameState::Playing), cleanup_game)
             .add_systems(
@@ -58,6 +57,7 @@ impl Plugin for SudokuPlugin {
                     show_conflict,
                     kick_candidates,
                     check_solver,
+                    sudoku_solved,
                 )
                     .run_if(in_state(GameState::Playing)),
             )
@@ -634,20 +634,27 @@ fn on_clean_cell(
 
 fn check_solver(
     cell_query: Query<(&DigitValueCell, &CellPosition)>,
-    mut sudoku_manager: ResMut<SudokuManager>,
+    sudoku_manager: Res<SudokuManager>,
+    mut commands: Commands,
 ) {
-    let mut list = [CellState::Candidates(Set::NONE); 81];
+    let mut solved_count = 0;
     for (cell_value, cell_position) in cell_query
         .iter()
         .sort_by::<&CellPosition>(|t1, t2| t1.0.cmp(&t2.0))
     {
         if let Some(digit) = cell_value.0 {
-            list[cell_position.0 as usize] = CellState::Digit(digit);
+            for (index, num) in sudoku_manager.solution.iter().enumerate() {
+                if cell_position.0 == index as u8 {
+                    if Some(num.unwrap()) == Some(digit.get()) {
+                        solved_count += 1;
+                    }
+                }
+            }
         }
-    }
 
-    if StrategySolver::from_grid_state(list).is_solved() {
-        info!("Sudoku solved!");
+        if solved_count == 81 {
+            commands.send_event(SudokuSolved);
+        }
     }
 }
 
@@ -1085,4 +1092,17 @@ fn on_reveal_puzzle(
 ) {
     let entities = q_cell.iter().collect::<Vec<_>>();
     commands.trigger_targets(RevealCell, entities);
+}
+
+#[derive(Event)]
+pub struct SudokuSolved;
+
+fn sudoku_solved(
+    mut ev: EventReader<SudokuSolved>,
+    mut time: ResMut<Time<Virtual>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    for _ in ev.read() {
+        time.pause();
+    }
 }

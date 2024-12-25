@@ -1,6 +1,7 @@
-use crate::loading::TextureAssets;
+use crate::loading::{FontAssets, TextureAssets};
 use crate::GameState;
 use bevy::prelude::*;
+use bevy::winit::cursor::CustomCursor::Image;
 
 pub struct MenuPlugin;
 
@@ -32,7 +33,7 @@ impl Default for ButtonColors {
 #[derive(Component)]
 struct Menu;
 
-fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
+fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets: Res<FontAssets>) {
     info!("menu");
     commands.spawn((Camera2d, Msaa::Off, Menu));
     commands
@@ -80,6 +81,55 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                             },
                         ))
                         .with_children(|children| {
+                            children.spawn((
+                                ImageNode::from(textures.logo.clone()),
+                                Node {
+                                    width: Val::Px(64.0),
+                                    height: Val::Px(64.0),
+                                    margin: UiRect {
+                                        bottom: Val::Px(12.0),
+                                        ..default()
+                                    },
+                                    ..default()
+                                },
+                                // BackgroundColor(Color::WHITE),
+                            ));
+
+                            children.spawn((
+                                Text::new("Sudoku"),
+                                TextFont {
+                                    font_size: 48.0,
+                                    font: font_assets.karnak.clone(),
+                                    ..default()
+                                },
+                                TextColor::BLACK,
+                            ));
+
+                            children.spawn((
+                                Text::new("Try this numbers game,"),
+                                TextFont {
+                                    font_size: 36.0,
+                                    font: font_assets.karnak_500.clone(),
+                                    ..default()
+                                },
+                                TextColor::BLACK,
+                            ));             children.spawn((
+                                Text::new("minus the math."),
+                                TextFont {
+                                    font_size: 36.0,
+                                    font: font_assets.karnak_500.clone(),
+                                    ..default()
+                                },
+                                TextColor::BLACK,
+                                Node {
+                                    margin: UiRect {
+                                        bottom: Val::Px(36.0),
+                                        ..default()
+                                    },
+                                    ..default()
+                                }
+                            ));
+
                             let button_colors = ButtonColors::default();
                             children
                                 .spawn((

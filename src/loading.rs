@@ -47,6 +47,8 @@ pub struct TextureAssets {
     pub blank_check: Handle<Image>,
     #[asset(path = "textures/check.png")]
     pub check: Handle<Image>,
+    #[asset(path = "textures/logo.png")]
+    pub logo: Handle<Image>,
 }
 
 #[derive(AssetCollection, Resource)]
@@ -61,4 +63,6 @@ pub struct FontAssets {
     pub franklin_800: Handle<Font>,
     #[asset(path = "fonts/NYTKarnakCondensed.ttf")]
     pub karnak: Handle<Font>,
+    #[asset(path = "fonts/karnak-normal-500.ttf")]
+    pub karnak_500: Handle<Font>,
 }

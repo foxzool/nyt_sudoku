@@ -1,5 +1,5 @@
 use crate::color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR};
-use crate::game::{AutoCandidateMode, CleanCell, NewCandidate, NewDigit};
+use crate::game::{AutoCandidateMode, CleanCell, NewCandidate, NewDigit, SelectedCell};
 use crate::loading::{FontAssets, TextureAssets};
 use bevy::prelude::*;
 
@@ -260,8 +260,8 @@ pub(crate) fn control_board(
                             BorderColor(*GRAY),
                         ))
                         .observe(
-                            |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-                                commands.send_event(CleanCell);
+                            |_trigger: Trigger<Pointer<Click>>, mut commands: Commands, selected: Single<Entity, With<SelectedCell>>| {
+                                commands.trigger_targets(CleanCell, vec![*selected]);
                             },
                         )
                         .with_children(|builder| {

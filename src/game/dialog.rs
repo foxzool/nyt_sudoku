@@ -14,7 +14,7 @@ pub(super) fn plugin(app: &mut App) {
     .add_observer(on_hint);
 }
 
-pub(crate) fn dialog_container(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
+pub(crate) fn dialog_container(_font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
     builder
         .spawn((
             Name::new("dialog-container"),

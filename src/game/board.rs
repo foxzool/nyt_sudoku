@@ -352,6 +352,10 @@ fn show_digit_cell(
                 if let CellMode::Digit = cell_mode {
                     if let Some(digit) = digit_value.0 {
                         text.0 = digit.get().to_string();
+                    } else {
+                        *visibility = Visibility::Hidden;
+                        text.0 = "".to_string();
+                        continue;
                     }
                     *visibility = Visibility::Visible;
                 } else {

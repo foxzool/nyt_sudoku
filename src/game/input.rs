@@ -1,12 +1,13 @@
-use crate::game::{control_tab::ToggleTab, CleanCell, MoveSelectCell, NewCandidate, NewDigit};
+use crate::game::{control_tab::ToggleTab, CleanCell, MoveSelectCell, NewCandidate, NewDigit, SelectedCell};
 use bevy::prelude::*;
 
 pub(crate) fn keyboard_input(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    q_selected: Single<Entity, With<SelectedCell>>
 ) {
     if keyboard_input.just_pressed(KeyCode::Delete) {
-        commands.send_event(CleanCell);
+        commands.trigger_targets(CleanCell, vec![*q_selected]);
         return;
     }
 

@@ -20,7 +20,7 @@ use bevy::color::palettes::basic::RED;
 use bevy::color::palettes::css::LIGHT_YELLOW;
 use bevy::prelude::*;
 use bevy::time::Stopwatch;
-use bevy::utils::HashSet;
+use bevy::utils::{info, HashSet};
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 use sudoku::strategy::StrategySolver;
@@ -47,7 +47,6 @@ impl Plugin for SudokuPlugin {
             .add_event::<NewDigit>()
             .add_event::<NewCandidate>()
             .add_event::<RemoveDigit>()
-            .add_event::<CleanCell>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(OnExit(GameState::Playing), cleanup_game)
             .add_systems(
@@ -61,21 +60,21 @@ impl Plugin for SudokuPlugin {
                     on_new_digit,
                     on_new_candidate,
                     check_solver,
-                    on_clean_cell,
                 )
                     .run_if(in_state(GameState::Playing)),
             )
             .add_observer(check_conflict)
+            .add_observer(on_clean_cell)
             .add_observer(on_select_cell)
             .add_observer(remove_conflict)
             .add_observer(on_unselect_cell)
+            .add_observer(on_reset_puzzle)
             .add_observer(on_show_more);
     }
 }
 
 #[derive(Resource, Debug)]
 pub struct SudokuManager {
-    pub current_sudoku: Sudoku,
     pub solver: StrategySolver,
 }
 
@@ -454,7 +453,6 @@ fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosit
 
     let solver = StrategySolver::from_sudoku(sudoku.clone());
     commands.insert_resource(SudokuManager {
-        current_sudoku: sudoku,
         solver: solver.clone(),
     });
 
@@ -580,7 +578,7 @@ fn on_new_candidate(
 }
 
 fn on_clean_cell(
-    mut trigger: EventReader<CleanCell>,
+    trigger: Trigger<CleanCell>,
     mut q_cell: Query<
         (
             Entity,
@@ -588,35 +586,35 @@ fn on_clean_cell(
             &mut ManualCandidates,
             &mut CellMode,
         ),
-        (With<SelectedCell>, Without<FixedCell>),
+        (Without<FixedCell>),
     >,
     auto_mode: Res<AutoCandidateMode>,
     children: Query<&Children>,
     q_preview: Query<&PreviewCandidate>,
     mut commands: Commands,
 ) {
-    for _ in trigger.read() {
-        for (entity, mut digit_value, mut manual_candidates, mut cell_mode) in q_cell.iter_mut() {
-            match *cell_mode {
-                CellMode::Digit => {
-                    if let Some(digit) = digit_value.0 {
-                        commands.trigger(RemoveDigit(digit));
-                    }
-                    digit_value.0 = None;
-                    if **auto_mode {
-                        *cell_mode = CellMode::AutoCandidates;
-                    } else {
-                        *cell_mode = CellMode::ManualCandidates;
-                    }
+    if let Ok((entity, mut digit_value, mut manual_candidates, mut cell_mode)) =
+        q_cell.get_mut(trigger.entity())
+    {
+        match *cell_mode {
+            CellMode::Digit => {
+                if let Some(digit) = digit_value.0 {
+                    commands.trigger(RemoveDigit(digit));
                 }
-                CellMode::AutoCandidates => {}
-                CellMode::ManualCandidates => manual_candidates.0 = Set::NONE,
+                digit_value.0 = None;
+                if **auto_mode {
+                    *cell_mode = CellMode::AutoCandidates;
+                } else {
+                    *cell_mode = CellMode::ManualCandidates;
+                }
             }
+            CellMode::AutoCandidates => {}
+            CellMode::ManualCandidates => manual_candidates.0 = Set::NONE,
+        }
 
-            for child in children.iter_descendants(entity) {
-                if let Ok(_preview) = q_preview.get(child) {
-                    commands.entity(child).remove::<PreviewCandidate>();
-                }
+        for child in children.iter_descendants(entity) {
+            if let Ok(_preview) = q_preview.get(child) {
+                commands.entity(child).remove::<PreviewCandidate>();
             }
         }
     }
@@ -890,6 +888,7 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 "Reset Puzzle",
                 |_: Trigger<Pointer<Click>>, mut commands| {
                     commands.trigger(ShowMore(false));
+                    commands.trigger(ResetPuzzle);
                 },
             );
         });
@@ -969,5 +968,73 @@ fn on_show_more(
         **q_more = Visibility::Visible;
     } else {
         **q_more = Visibility::Hidden;
+    }
+}
+
+#[derive(Event)]
+struct ResetPuzzle;
+
+fn on_reset_puzzle(
+    _trigger: Trigger<ResetPuzzle>,
+    sudoku_manager: Res<SudokuManager>,
+    mut q_cell: Query<(
+        Entity,
+        &CellPosition,
+        &mut DigitValueCell,
+        &mut ManualCandidates,
+        &mut AutoCandidates,
+        &mut CellMode,
+    )>,
+    children: Query<&Children>,
+    mut q_conflict: Query<&mut ConflictCount>,
+    mut commands: Commands,
+    mut auto_mode: ResMut<AutoCandidateMode>,
+) {
+    auto_mode.0 = false;
+    let mut entities = vec![];
+    for (entity, _, _, _, _, _) in q_cell.iter() {
+        for child in children.iter_descendants(entity) {
+            if let Ok(mut conflict_count) = q_conflict.get_mut(child) {
+                conflict_count.clear();
+            }
+        }
+        commands.entity(entity).remove::<SelectedCell>();
+        entities.push(entity);
+    }
+
+    commands.trigger_targets(CleanCell, entities);
+
+    'l: for (index, cell_state) in sudoku_manager.solver.grid_state().into_iter().enumerate() {
+        for (
+            entity,
+            cell_position,
+            mut digit_value,
+            mut manual_candidates,
+            mut auto_candidates,
+            mut cell_mode,
+        ) in q_cell.iter_mut()
+        {
+            if cell_position.0 == index as u8 {
+                if index == 0 {
+                    commands.entity(entity).insert(SelectedCell);
+                }
+                match cell_state {
+                    CellState::Digit(digit) => {
+                        *cell_mode = CellMode::Digit;
+                        digit_value.0 = Some(digit);
+                        manual_candidates.0 = Set::NONE;
+                        auto_candidates.0 = Set::NONE;
+                    }
+                    CellState::Candidates(cands) => {
+                        *cell_mode = CellMode::ManualCandidates;
+                        digit_value.0 = None;
+                        manual_candidates.0 = Set::NONE;
+                        auto_candidates.0 = cands;
+                    }
+                }
+
+                continue 'l;
+            }
+        }
     }
 }

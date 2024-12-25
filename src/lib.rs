@@ -37,9 +37,9 @@ impl Plugin for GamePlugin {
             .insert_resource(ClearColor(WHITE_COLOR))
             .add_plugins((LoadingPlugin, MenuPlugin, SudokuPlugin));
 
-        #[cfg(debug_assertions)]
-        {
-            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
-        }
+        // #[cfg(debug_assertions)]
+        // {
+        //     app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
+        // }
     }
 }

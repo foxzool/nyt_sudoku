@@ -46,31 +46,65 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                 ..default()
             },
             Menu,
+            BackgroundColor(Color::srgb_u8(251, 155, 0)),
         ))
         .with_children(|children| {
-            let button_colors = ButtonColors::default();
             children
                 .spawn((
-                    Button,
+                    Name::new("menu-container"),
                     Node {
-                        width: Val::Px(140.0),
-                        height: Val::Px(50.0),
-                        justify_content: JustifyContent::Center,
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
-                        ..Default::default()
-                    },
-                    BackgroundColor(button_colors.normal),
-                    button_colors,
-                    ChangeState(GameState::Playing),
-                ))
-                .with_child((
-                    Text::new("Easy"),
-                    TextFont {
-                        font_size: 40.0,
+                        justify_content: JustifyContent::FlexStart,
+                        flex_wrap: FlexWrap::Wrap,
+                        height: Val::Percent(100.),
+                        padding: UiRect::horizontal(Val::Px(15.0)),
                         ..default()
                     },
-                    TextColor(Color::linear_rgb(0.9, 0.9, 0.9)),
-                ));
+                    // BackgroundColor(Color::srgb_u8(251, 155,0))
+                ))
+                .with_children(|children| {
+                    children
+                        .spawn((
+                            Name::new("menu-wrapper"),
+                            Node {
+                                display: Display::Flex,
+                                flex_direction: FlexDirection::Column,
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::FlexStart,
+                                flex_wrap: FlexWrap::Wrap,
+                                height: Val::Percent(100.),
+                                padding: UiRect::axes(Val::Px(15.0), Val::Px(30.0)),
+                                ..default()
+                            },
+                        ))
+                        .with_children(|children| {
+                            let button_colors = ButtonColors::default();
+                            children
+                                .spawn((
+                                    Button,
+                                    Node {
+                                        width: Val::Px(140.0),
+                                        height: Val::Px(50.0),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        ..Default::default()
+                                    },
+                                    BackgroundColor(button_colors.normal),
+                                    button_colors,
+                                    ChangeState(GameState::Playing),
+                                ))
+                                .with_child((
+                                    Text::new("Easy"),
+                                    TextFont {
+                                        font_size: 40.0,
+                                        ..default()
+                                    },
+                                    TextColor(Color::linear_rgb(0.9, 0.9, 0.9)),
+                                ));
+                        });
+                });
         });
     commands
         .spawn((

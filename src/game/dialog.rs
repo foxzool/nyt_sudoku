@@ -338,7 +338,7 @@ fn on_pause_game(
     ev: Trigger<PauseGame>,
     mut time: ResMut<Time<Virtual>>,
     mut commands: Commands,
-    mut q_dialog: Single<(Entity, &mut Visibility), With<DialogContainer>>,
+    q_dialog: Single<(Entity, &mut Visibility), With<DialogContainer>>,
     font_assets: Res<FontAssets>,
     q_pause: Query<Entity, With<PauseContainer>>,
 ) {
@@ -405,11 +405,11 @@ fn fade_in_animation(
 
 fn fade_out_animation(
     time: Res<Time<Real>>,
-    mut q: Query<(Entity, &mut Node, &mut Visibility, &mut FadeOut), Without<DialogContainer>>,
+    mut q: Query<(Entity, &mut Node, &mut FadeOut), Without<DialogContainer>>,
     mut q_dialog: Single<&mut Visibility, (With<DialogContainer>, Without<FadeOut>)>,
     mut commands: Commands,
 ) {
-    for (entity, mut node, mut visibility, mut fade_out) in &mut q.iter_mut() {
+    for (entity, mut node, mut fade_out) in &mut q.iter_mut() {
         fade_out.0.tick(time.delta());
         node.bottom = Val::Px(-fade_out.percent() * 60.0);
         if fade_out.0.just_finished() {
@@ -429,7 +429,7 @@ fn on_hint(
     trigger: Trigger<ShowHint>,
     mut time: ResMut<Time<Virtual>>,
     mut commands: Commands,
-    mut q_dialog: Single<(Entity, &mut Visibility), With<DialogContainer>>,
+    q_dialog: Single<(Entity, &mut Visibility), With<DialogContainer>>,
     font_assets: Res<FontAssets>,
     texture_assets: Res<TextureAssets>,
     q_hint: Query<Entity, With<HintContainer>>,

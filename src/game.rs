@@ -1,21 +1,19 @@
-use crate::game::board::ConflictContainer;
-use crate::game::cell_state::{ConflictCell, RevealedCell};
-use crate::game::dialog::{dialog_container, ShowHint};
-use crate::game::dialog::{DialogContainer, PauseGame};
-use crate::share::title_bar;
 use crate::{
     color::*,
     game::{
+        board::ConflictContainer,
         board::{play_board, PreviewCandidate},
-        cell_state::CandidatesValue,
         cell_state::{
-            AutoCandidates, CellMode, CellValueBundle, DigitValueCell, FixedCell, ManualCandidates,
+            AutoCandidates, CandidatesValue, CellMode, CellValueBundle, ConflictCell,
+            CorrectionCell, DigitValueCell, FixedCell, ManualCandidates, RevealedCell,
         },
         control_tab::control_board,
+        dialog::{dialog_container, DialogContainer, PauseGame, ShowHint},
         input::{keyboard_input, keyboard_move_cell},
         position::CellPosition,
     },
     loading::{FontAssets, TextureAssets},
+    share::title_bar,
     GameState,
 };
 use bevy::color::palettes::basic::RED;
@@ -72,6 +70,7 @@ impl Plugin for SudokuPlugin {
             .add_observer(on_reset_puzzle)
             .add_observer(on_reveal_cell)
             .add_observer(on_reveal_puzzle)
+            .add_observer(on_check_cell)
             .add_observer(on_show_more);
     }
 }
@@ -620,7 +619,10 @@ fn on_clean_cell(
             CellMode::AutoCandidates => {}
             CellMode::ManualCandidates => manual_candidates.0 = Set::NONE,
         }
-        commands.entity(entity).remove::<ConflictCell>();
+        commands
+            .entity(entity)
+            .remove::<ConflictCell>()
+            .remove::<CorrectionCell>();
 
         for child in children.iter_descendants(entity) {
             if let Ok(_preview) = q_preview.get(child) {
@@ -879,8 +881,9 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 font_assets,
                 builder,
                 "Check Cell",
-                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
+                |_: Trigger<Pointer<Click>>, mut commands, q_selected| {
                     commands.trigger(ShowMore(false));
+                    commands.trigger_targets(CheckCell, vec![*q_selected]);
                 },
             );
             more_item(
@@ -1105,5 +1108,28 @@ pub struct SudokuSolved;
 fn sudoku_solved(mut ev: EventReader<SudokuSolved>, mut time: ResMut<Time<Virtual>>) {
     for _ in ev.read() {
         time.pause();
+    }
+}
+
+#[derive(Event)]
+pub struct CheckCell;
+
+fn on_check_cell(
+    trigger: Trigger<CheckCell>,
+    q_cell: Query<(&DigitValueCell, &CellPosition), Without<FixedCell>>,
+    sudoku_manager: Res<SudokuManager>,
+    mut commands: Commands,
+) {
+    let entity = trigger.entity();
+    if let Ok((cell_value, cell_position)) = q_cell.get(entity) {
+        if let Some(digit) = cell_value.0 {
+            for (index, num) in sudoku_manager.solution.iter().enumerate() {
+                if cell_position.0 == index as u8 {
+                    if Some(num.unwrap()) != Some(digit.get()) {
+                        commands.entity(entity).insert(CorrectionCell);
+                    }
+                }
+            }
+        }
     }
 }

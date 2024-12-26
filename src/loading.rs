@@ -49,6 +49,8 @@ pub struct TextureAssets {
     pub check: Handle<Image>,
     #[asset(path = "textures/logo.png")]
     pub logo: Handle<Image>,
+    #[asset(path = "textures/correction.png")]
+    pub correction: Handle<Image>,
 }
 
 #[derive(AssetCollection, Resource)]

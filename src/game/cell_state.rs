@@ -143,5 +143,10 @@ pub trait CandidateMarker: Component {
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ConflictCell(pub HashSet<Entity>);
 
+/// 已经揭示的格子
 #[derive(Component)]
 pub struct RevealedCell;
+
+/// 纠正的格子
+#[derive(Component)]
+pub struct CorrectionCell;

@@ -1,3 +1,4 @@
+use crate::game::cell_state::{ConflictCell, CorrectionCell};
 use crate::{
     color::*,
     game::cell_state::{
@@ -15,7 +16,6 @@ use crate::{
 };
 use bevy::prelude::*;
 use sudoku::board::Digit;
-use crate::game::cell_state::ConflictCell;
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_systems(
@@ -35,7 +35,10 @@ pub(crate) fn plugin(app: &mut App) {
     )
     .add_observer(move_select_cell)
     .add_observer(on_insert_conflict)
-    .add_observer(on_remove_conflict);
+    .add_observer(on_remove_conflict)
+    .add_observer(on_insert_correction)
+
+    ;
 }
 
 pub(crate) fn play_board(
@@ -176,10 +179,10 @@ pub(crate) fn play_board(
                                                                         AlignContent::Center,
                                                                     justify_content:
                                                                         JustifyContent::Center,
-                                                                    margin: UiRect {
-                                                                        top: Val::Px(4.),
-                                                                        ..default()
-                                                                    },
+                                                                    // margin: UiRect {
+                                                                    //     top: Val::Px(4.),
+                                                                    //     ..default()
+                                                                    // },
                                                                     ..default()
                                                                 },
                                                                 Visibility::Inherited,
@@ -671,4 +674,48 @@ fn on_remove_conflict(
             commands.entity(conflict).despawn_recursive();
         }
     }
+}
+
+fn on_insert_correction(
+    trigger: Trigger<OnInsert, CorrectionCell>,
+    mut commands: Commands,
+    texture_assets: Res<TextureAssets>,
+) {
+    commands.entity(trigger.entity()).with_children(|builder| {
+        spawn_correction_container(&texture_assets, builder);
+    });
+}
+
+fn on_remove_correction(
+    trigger: Trigger<OnRemove, CorrectionCell>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    q_correction: Query<Entity, With<CorrectionContainer>>,
+) {
+    for child in children.iter_descendants(trigger.entity()) {
+        if let Ok(correction) = q_correction.get(child) {
+            commands.entity(correction).despawn_recursive();
+        }
+    }
+}
+
+#[derive(Component)]
+struct CorrectionContainer;
+
+fn spawn_correction_container(texture_assets: &Res<TextureAssets>, builder: &mut ChildBuilder) {
+    builder.spawn((
+        ImageNode {
+            image: texture_assets.correction.clone(),
+            ..default()
+        },
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(0.0),
+            left: Val::Px(0.0),
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        CorrectionContainer,
+    ));
 }

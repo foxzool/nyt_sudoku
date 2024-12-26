@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use std::ops::BitXorAssign;
+use bevy::utils::HashSet;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 
@@ -138,6 +139,9 @@ pub trait CandidateMarker: Component {
     fn set_selected(&mut self, selected: bool);
 }
 
+/// 冲突红点
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ConflictCell(pub HashSet<Entity>);
 
 #[derive(Component)]
 pub struct RevealedCell;

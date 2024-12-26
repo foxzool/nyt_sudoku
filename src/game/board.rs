@@ -1,18 +1,21 @@
-use crate::color::*;
-use crate::game::cell_state::{
-    AutoCandidateCellMarker, CandidateMarker, CandidatesValue, ManualCandidateCellMarker,
-    RevealedCell,
+use crate::{
+    color::*,
+    game::cell_state::{
+        AutoCandidateCellMarker, CandidateMarker, CandidatesValue, ManualCandidateCellMarker,
+        RevealedCell,
+    },
+    game::cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates},
+    game::position::CellPosition,
+    game::{
+        AutoCandidateMode, AutoCandidatesContainer, DigitCellContainer, ManualCandidatesContainer,
+        MoveSelectCell, SelectedCell,
+    },
+    loading::{FontAssets, TextureAssets},
+    GameState,
 };
-use crate::game::cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates};
-use crate::game::position::CellPosition;
-use crate::game::{
-    AutoCandidateMode, AutoCandidatesContainer, ConflictCount, DigitCellContainer,
-    ManualCandidatesContainer, MoveSelectCell, SelectedCell,
-};
-use crate::loading::{FontAssets, TextureAssets};
-use crate::GameState;
 use bevy::prelude::*;
 use sudoku::board::Digit;
+use crate::game::cell_state::ConflictCell;
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_systems(
@@ -30,7 +33,9 @@ pub(crate) fn plugin(app: &mut App) {
         Update,
         switch_candidate_cell_mode.run_if(resource_changed::<AutoCandidateMode>),
     )
-    .add_observer(move_select_cell);
+    .add_observer(move_select_cell)
+    .add_observer(on_insert_conflict)
+    .add_observer(on_remove_conflict);
 }
 
 pub(crate) fn play_board(
@@ -124,25 +129,6 @@ pub(crate) fn play_board(
                                                     ..default()
                                                 },
                                                 DigitCellContainer,
-                                            ));
-
-                                            // 冲突计数器
-                                            builder.spawn((
-                                                ImageNode {
-                                                    image: texture_assets.circle.clone(),
-                                                    color: Color::srgb_u8(255, 75, 86),
-                                                    ..default()
-                                                },
-                                                Visibility::Hidden,
-                                                Node {
-                                                    position_type: PositionType::Absolute,
-                                                    right: Val::Px(7.0),
-                                                    bottom: Val::Px(7.0),
-                                                    width: Val::Px(14.0),
-                                                    height: Val::Px(14.0),
-                                                    ..default()
-                                                },
-                                                ConflictCount::default(),
                                             ));
 
                                             // 自动候选格子容器
@@ -306,6 +292,26 @@ pub(crate) fn play_board(
                     }
                 });
         });
+}
+
+fn spawn_conflict_container(texture_assets: &Res<TextureAssets>, builder: &mut ChildBuilder) {
+    builder.spawn((
+        ImageNode {
+            image: texture_assets.circle.clone(),
+            color: Color::srgb_u8(255, 75, 86),
+            ..default()
+        },
+        // Visibility::Hidden,
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(7.0),
+            bottom: Val::Px(7.0),
+            width: Val::Px(14.0),
+            height: Val::Px(14.0),
+            ..default()
+        },
+        ConflictContainer,
+    ));
 }
 
 #[derive(Component)]
@@ -532,7 +538,7 @@ fn change_cell_vis(
         &mut Visibility,
         (
             With<DigitCellContainer>,
-            Without<ConflictCount>,
+            Without<ConflictCell>,
             Without<ManualCandidatesContainer>,
             Without<AutoCandidatesContainer>,
         ),
@@ -542,7 +548,7 @@ fn change_cell_vis(
         (
             With<ManualCandidatesContainer>,
             Without<DigitCellContainer>,
-            Without<ConflictCount>,
+            Without<ConflictCell>,
             Without<AutoCandidatesContainer>,
         ),
     >,
@@ -551,7 +557,7 @@ fn change_cell_vis(
         (
             With<AutoCandidatesContainer>,
             Without<DigitCellContainer>,
-            Without<ConflictCount>,
+            Without<ConflictCell>,
             Without<ManualCandidatesContainer>,
         ),
     >,
@@ -601,7 +607,7 @@ fn change_vis_inner(
         &mut Visibility,
         (
             With<DigitCellContainer>,
-            Without<ConflictCount>,
+            Without<ConflictCell>,
             Without<ManualCandidatesContainer>,
             Without<AutoCandidatesContainer>,
         ),
@@ -611,7 +617,7 @@ fn change_vis_inner(
         (
             With<ManualCandidatesContainer>,
             Without<DigitCellContainer>,
-            Without<ConflictCount>,
+            Without<ConflictCell>,
             Without<AutoCandidatesContainer>,
         ),
     >,
@@ -620,7 +626,7 @@ fn change_vis_inner(
         (
             With<AutoCandidatesContainer>,
             Without<DigitCellContainer>,
-            Without<ConflictCount>,
+            Without<ConflictCell>,
             Without<ManualCandidatesContainer>,
         ),
     >,
@@ -637,6 +643,32 @@ fn change_vis_inner(
         }
         if let Ok(mut vis) = q_auto.get_mut(*child) {
             *vis = auto_vis;
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct ConflictContainer;
+
+fn on_insert_conflict(
+    trigger: Trigger<OnInsert, ConflictCell>,
+    mut commands: Commands,
+    texture_assets: Res<TextureAssets>,
+) {
+    commands.entity(trigger.entity()).with_children(|builder| {
+        spawn_conflict_container(&texture_assets, builder);
+    });
+}
+
+fn on_remove_conflict(
+    trigger: Trigger<OnRemove, ConflictCell>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    q_conflict: Query<Entity, With<ConflictContainer>>,
+) {
+    for child in children.iter_descendants(trigger.entity()) {
+        if let Ok(conflict) = q_conflict.get(child) {
+            commands.entity(conflict).despawn_recursive();
         }
     }
 }

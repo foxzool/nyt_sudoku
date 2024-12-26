@@ -1,4 +1,5 @@
-use crate::game::cell_state::RevealedCell;
+use crate::game::board::ConflictContainer;
+use crate::game::cell_state::{ConflictCell, RevealedCell};
 use crate::game::dialog::{dialog_container, ShowHint};
 use crate::game::dialog::{DialogContainer, PauseGame};
 use crate::share::title_bar;
@@ -438,10 +439,6 @@ pub enum MoveSelectCell {
 #[derive(Component)]
 pub struct DigitCellContainer;
 
-/// 冲突红点
-#[derive(Component, Default, Deref, DerefMut)]
-pub struct ConflictCount(HashSet<Entity>);
-
 /// 手动候选格子容器
 #[derive(Component)]
 pub struct ManualCandidatesContainer;
@@ -623,6 +620,7 @@ fn on_clean_cell(
             CellMode::AutoCandidates => {}
             CellMode::ManualCandidates => manual_candidates.0 = Set::NONE,
         }
+        commands.entity(entity).remove::<ConflictCell>();
 
         for child in children.iter_descendants(entity) {
             if let Ok(_preview) = q_preview.get(child) {
@@ -714,28 +712,38 @@ fn kick_candidates(
     }
 }
 
+/// 检查格子冲突
 fn check_conflict(
     _check_digit: Trigger<CheckDigitConflict>,
     update_cell: Query<
         (Entity, &DigitValueCell, &CellPosition),
         (With<SelectedCell>, Without<FixedCell>),
     >,
-    q_cell: Query<(Entity, &DigitValueCell, &CellPosition, &Children)>,
-    mut q_conflict: Query<&mut ConflictCount>,
+    mut q_cell: Query<(
+        Entity,
+        &DigitValueCell,
+        &CellPosition,
+        Option<&mut ConflictCell>,
+    )>,
+    mut commands: Commands,
 ) {
     if let Ok((check_entity, digit_cell, cell_position)) = update_cell.get_single() {
         if let Some(check_digit) = digit_cell.0 {
             debug!("check conflict: {:?}", check_digit);
             let mut conflict_list = vec![];
-            for (other_entity, other_cell_value, other_cell_position, children) in q_cell.iter() {
+            for (other_entity, other_cell_value, other_cell_position, opt_conflict) in
+                q_cell.iter_mut()
+            {
                 if cell_position.in_range(other_cell_position) {
                     if let Some(other_digit) = other_cell_value.0 {
                         if check_digit == other_digit && cell_position != other_cell_position {
                             conflict_list.push(other_entity);
-                            for child in children {
-                                if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                                    conflict_count.insert(check_entity);
-                                }
+                            if let Some(mut conflict) = opt_conflict {
+                                conflict.insert(check_entity);
+                            } else {
+                                commands
+                                    .entity(other_entity)
+                                    .insert(ConflictCell(HashSet::from([check_entity])));
                             }
                         }
                     }
@@ -743,15 +751,15 @@ fn check_conflict(
             }
 
             if !conflict_list.is_empty() {
-                if let Ok((entity, _other_cell_value, _other_cell_position, children)) =
-                    q_cell.get(check_entity)
+                if let Ok((entity, _other_cell_value, _other_cell_position, opt_conflict)) =
+                    q_cell.get_mut(check_entity)
                 {
-                    for child in children {
-                        if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                            conflict_count.insert(entity);
-                            conflict_count.extend(conflict_list);
-                            return;
-                        }
+                    if let Some(mut conflict) = opt_conflict {
+                        conflict.insert(check_entity);
+                    } else {
+                        commands
+                            .entity(entity)
+                            .insert(ConflictCell(HashSet::from_iter(conflict_list)));
                     }
                 }
             }
@@ -759,39 +767,42 @@ fn check_conflict(
     }
 }
 
-fn show_conflict(mut q_conflict: Query<(&mut Visibility, &ConflictCount), Changed<ConflictCount>>) {
-    for (mut visibility, conflict_count) in q_conflict.iter_mut() {
-        if conflict_count.is_empty() {
-            *visibility = Visibility::Hidden;
+fn show_conflict(
+    mut q_conflict: Query<(Entity, &ConflictCell, &Children), Changed<ConflictCell>>,
+    mut q_text: Query<&mut Text, With<ConflictContainer>>,
+    mut commands: Commands,
+) {
+    for (entity, conflict, children) in q_conflict.iter_mut() {
+        if conflict.is_empty() {
+            commands.entity(entity).remove::<ConflictCell>();
         } else {
-            *visibility = Visibility::Visible;
+            for child in children.iter() {
+                if let Ok(mut text) = q_text.get_mut(*child) {
+                    text.0 = conflict.len().to_string();
+                }
+            }
         }
     }
 }
 
 fn remove_conflict(
     remove_digit: Trigger<RemoveDigit>,
-    q_cell: Query<(Entity, &CellPosition, &Children), With<SelectedCell>>,
-    other_cell: Query<(&DigitValueCell, &CellPosition, &Children), Without<SelectedCell>>,
-    mut q_conflict: Query<&mut ConflictCount>,
+    mut q_cell: Query<(Entity, &CellPosition), With<SelectedCell>>,
+    mut other_cell: Query<
+        (&DigitValueCell, &CellPosition, &mut ConflictCell),
+        Without<SelectedCell>,
+    >,
+    mut commands: Commands,
 ) {
     let remove_digit = remove_digit.0;
-    for (entity, cell_position, children) in q_cell.iter() {
-        for child in children {
-            if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                conflict_count.clear();
-            }
-        }
+    for (entity, cell_position) in q_cell.iter() {
+        commands.entity(entity).remove::<ConflictCell>();
 
-        for (other_cell_value, other_cell_position, children) in other_cell.iter() {
+        for (other_cell_value, other_cell_position, mut conflict) in other_cell.iter_mut() {
             if cell_position.in_range(other_cell_position) {
                 if let Some(other_digit) = other_cell_value.0 {
                     if remove_digit == other_digit && cell_position != other_cell_position {
-                        for child in children {
-                            if let Ok(mut conflict_count) = q_conflict.get_mut(*child) {
-                                conflict_count.remove(&entity);
-                            }
-                        }
+                        conflict.remove(&entity);
                     }
                 }
             }
@@ -1001,8 +1012,6 @@ fn on_reset_puzzle(
         &mut AutoCandidates,
         &mut CellMode,
     )>,
-    children: Query<&Children>,
-    mut q_conflict: Query<&mut ConflictCount>,
     mut commands: Commands,
     mut auto_mode: ResMut<AutoCandidateMode>,
 ) {
@@ -1010,14 +1019,10 @@ fn on_reset_puzzle(
     auto_mode.0 = false;
     let mut entities = vec![];
     for (entity, _, _, _, _, _) in q_cell.iter() {
-        for child in children.iter_descendants(entity) {
-            if let Ok(mut conflict_count) = q_conflict.get_mut(child) {
-                conflict_count.clear();
-            }
-        }
         commands
             .entity(entity)
             .remove::<SelectedCell>()
+            .remove::<ConflictCell>()
             .remove::<RevealedCell>();
         entities.push(entity);
     }
@@ -1097,11 +1102,7 @@ fn on_reveal_puzzle(
 #[derive(Event)]
 pub struct SudokuSolved;
 
-fn sudoku_solved(
-    mut ev: EventReader<SudokuSolved>,
-    mut time: ResMut<Time<Virtual>>,
-    mut next_state: ResMut<NextState<GameState>>,
-) {
+fn sudoku_solved(mut ev: EventReader<SudokuSolved>, mut time: ResMut<Time<Virtual>>) {
     for _ in ev.read() {
         time.pause();
     }

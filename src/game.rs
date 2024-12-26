@@ -62,6 +62,7 @@ impl Plugin for SudokuPlugin {
             .add_observer(on_new_digit)
             .add_observer(on_new_candidate)
             .add_observer(check_conflict)
+            .add_observer(find_hint)
             .add_observer(on_clean_cell)
             .add_observer(on_select_cell)
             .add_observer(remove_conflict)
@@ -532,7 +533,7 @@ fn on_new_digit(
 }
 
 fn on_new_candidate(
-    mut trigger: Trigger<NewCandidate>,
+    trigger: Trigger<NewCandidate>,
     mut q_cell: Query<
         (
             &mut DigitValueCell,
@@ -871,6 +872,7 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 "Hint",
                 |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
                     commands.trigger(ShowMore(false));
+                    commands.trigger(FindHint);
                 },
             );
             more_item(
@@ -1150,5 +1152,33 @@ fn on_check_puzzle(
                 }
             }
         }
+    }
+}
+
+#[derive(Event)]
+pub struct FindHint;
+
+/// 查找提示, 暂时按照候选数最少的格子来选中
+fn find_hint(
+    _trigger: Trigger<FindHint>,
+    q_selected: Query<Entity, With<SelectedCell>>,
+    q_cell: Query<(Entity, &AutoCandidates), Without<FixedCell>>,
+    mut commands: Commands,
+) {
+    for entity in q_selected.iter() {
+        commands.entity(entity).remove::<SelectedCell>();
+    }
+    if let Some((entity, _)) = q_cell
+        .iter()
+        .sort_by::<(Entity, &AutoCandidates)>(|t1, t2| {
+            let candidate_1 = t1.1;
+            let candidate_2 = t2.1;
+
+            candidate_1.0.len().cmp(&candidate_2.0.len())
+        })
+        .into_iter()
+        .next()
+    {
+        commands.entity(entity).insert(SelectedCell);
     }
 }

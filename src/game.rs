@@ -16,15 +16,18 @@ use crate::{
     share::title_bar,
     GameState,
 };
-use bevy::color::palettes::basic::RED;
-use bevy::color::palettes::css::LIGHT_YELLOW;
-use bevy::prelude::*;
-use bevy::time::Stopwatch;
-use bevy::utils::{info, HashSet};
-use sudoku::bitset::Set;
-use sudoku::board::{CellState, Digit};
-use sudoku::strategy::StrategySolver;
-use sudoku::Sudoku;
+use bevy::{
+    color::palettes::{basic::RED, css::LIGHT_YELLOW},
+    prelude::*,
+    time::Stopwatch,
+    utils::{info, HashSet},
+};
+use sudoku::{
+    bitset::Set,
+    board::{CellState, Digit},
+    strategy::StrategySolver,
+    Sudoku,
+};
 
 mod board;
 mod cell_state;
@@ -71,6 +74,7 @@ impl Plugin for SudokuPlugin {
             .add_observer(on_reveal_cell)
             .add_observer(on_reveal_puzzle)
             .add_observer(on_check_cell)
+            .add_observer(on_check_puzzle)
             .add_observer(on_show_more);
     }
 }
@@ -789,7 +793,7 @@ fn show_conflict(
 
 fn remove_conflict(
     remove_digit: Trigger<RemoveDigit>,
-    mut q_cell: Query<(Entity, &CellPosition), With<SelectedCell>>,
+    q_cell: Query<(Entity, &CellPosition), With<SelectedCell>>,
     mut other_cell: Query<
         (&DigitValueCell, &CellPosition, &mut ConflictCell),
         Without<SelectedCell>,
@@ -892,6 +896,7 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 "Check Puzzle",
                 |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
                     commands.trigger(ShowMore(false));
+                    commands.trigger(CheckPuzzle);
                 },
             );
             more_item(
@@ -1125,7 +1130,29 @@ fn on_check_cell(
         if let Some(digit) = cell_value.0 {
             for (index, num) in sudoku_manager.solution.iter().enumerate() {
                 if cell_position.0 == index as u8 {
-                    if Some(num.unwrap()) != Some(digit.get()) {
+                    if num != Some(digit.get()) {
+                        commands.entity(entity).insert(CorrectionCell);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Event)]
+pub struct CheckPuzzle;
+
+fn on_check_puzzle(
+    _trigger: Trigger<CheckPuzzle>,
+    q_cell: Query<(Entity, &DigitValueCell, &CellPosition), Without<FixedCell>>,
+    sudoku_manager: Res<SudokuManager>,
+    mut commands: Commands,
+) {
+    for (entity, cell_value, cell_position) in q_cell.iter() {
+        if let Some(digit) = cell_value.0 {
+            for (index, num) in sudoku_manager.solution.iter().enumerate() {
+                if cell_position.0 == index as u8 {
+                    if num != Some(digit.get()) {
                         commands.entity(entity).insert(CorrectionCell);
                     }
                 }

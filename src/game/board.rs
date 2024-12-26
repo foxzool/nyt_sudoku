@@ -36,6 +36,7 @@ pub(crate) fn plugin(app: &mut App) {
     .add_observer(move_select_cell)
     .add_observer(on_insert_conflict)
     .add_observer(on_remove_conflict)
+    .add_observer(on_remove_correction)
     .add_observer(on_insert_correction)
 
     ;
@@ -122,7 +123,7 @@ pub(crate) fn play_board(
                                                     font_size: 48.0,
                                                     ..default()
                                                 },
-                                                TextColor(Color::srgb_u8(18, 18, 18)),
+                                                TextColor(*DARK_BLACK),
                                                 Visibility::Hidden,
                                                 Node {
                                                     margin: UiRect {
@@ -368,6 +369,8 @@ fn show_digit_cell(
                     *visibility = Visibility::Visible;
                     if opt_revealed.is_some() {
                         text_color.0 = *ACCENT_BLUE;
+                    } else {
+                        text_color.0 = *DARK_BLACK;
                     }
                 } else {
                     *visibility = Visibility::Hidden;

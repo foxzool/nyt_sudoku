@@ -78,8 +78,8 @@ pub(crate) fn play_board(
                                     display: Display::Grid,
                                     grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
                                     grid_template_rows: RepeatedGridTrack::flex(3, 1.0),
-                                    row_gap: Val::Px(1.0),
-                                    column_gap: Val::Px(1.0),
+                                    // row_gap: Val::Px(1.0),
+                                    // column_gap: Val::Px(1.0),
                                     // border: UiRect::all(Val::Px(1.)),
                                     ..default()
                                 },
@@ -97,9 +97,11 @@ pub(crate) fn play_board(
                                                 justify_items: JustifyItems::Center,
                                                 align_content: AlignContent::Center,
                                                 justify_content: JustifyContent::Center,
+                                                border: UiRect::all(Val::Px(0.5)),
                                                 ..default()
                                             },
                                             CellPosition::from_block_row_col(block_index, bi),
+                                            BorderColor(*LIGHT_GRAY),
                                             BackgroundColor(Color::WHITE),
                                         ))
                                         .observe(on_click_cell)
@@ -358,7 +360,6 @@ fn show_digit_cell(
                     if opt_revealed.is_some() {
                         text_color.0 = *ACCENT_BLUE;
                     }
-
                 } else {
                     *visibility = Visibility::Hidden;
                 }

@@ -35,11 +35,9 @@ pub(crate) fn plugin(app: &mut App) {
     )
     .add_observer(move_select_cell)
     .add_observer(on_insert_conflict)
-    .add_observer(on_remove_conflict)
-    .add_observer(on_remove_correction)
-    .add_observer(on_insert_correction)
-
-    ;
+    .add_observer(remove_child_cell::<ConflictCell, ConflictContainer>)
+    .add_observer(remove_child_cell::<CorrectionCell, CorrectionContainer>)
+    .add_observer(on_insert_correction);
 }
 
 pub(crate) fn play_board(
@@ -666,15 +664,15 @@ fn on_insert_conflict(
     });
 }
 
-fn on_remove_conflict(
-    trigger: Trigger<OnRemove, ConflictCell>,
+fn remove_child_cell<E: Component, C: Component>(
+    trigger: Trigger<OnRemove, E>,
     mut commands: Commands,
     children: Query<&Children>,
-    q_conflict: Query<Entity, With<ConflictContainer>>,
+    q_com: Query<Entity, With<C>>,
 ) {
     for child in children.iter_descendants(trigger.entity()) {
-        if let Ok(conflict) = q_conflict.get(child) {
-            commands.entity(conflict).despawn_recursive();
+        if let Ok(e) = q_com.get(child) {
+            commands.entity(e).despawn_recursive();
         }
     }
 }
@@ -687,19 +685,6 @@ fn on_insert_correction(
     commands.entity(trigger.entity()).with_children(|builder| {
         spawn_correction_container(&texture_assets, builder);
     });
-}
-
-fn on_remove_correction(
-    trigger: Trigger<OnRemove, CorrectionCell>,
-    mut commands: Commands,
-    children: Query<&Children>,
-    q_correction: Query<Entity, With<CorrectionContainer>>,
-) {
-    for child in children.iter_descendants(trigger.entity()) {
-        if let Ok(correction) = q_correction.get(child) {
-            commands.entity(correction).despawn_recursive();
-        }
-    }
 }
 
 #[derive(Component)]

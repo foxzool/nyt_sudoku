@@ -1,13 +1,13 @@
 use crate::game::cell_state::{ConflictCell, CorrectionCell};
 use crate::{
     color::*,
-    game::cell_state::{
-        AutoCandidateCellMarker, CandidateMarker, CandidatesValue, ManualCandidateCellMarker,
-        RevealedCell,
-    },
-    game::cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates},
-    game::position::CellPosition,
     game::{
+        cell_state::{
+            AutoCandidateCellMarker, CandidateMarker, CandidatesValue, ManualCandidateCellMarker,
+            RevealedCell,
+        },
+        cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates},
+        position::CellPosition,
         AutoCandidateMode, AutoCandidatesContainer, DigitCellContainer, ManualCandidatesContainer,
         MoveSelectCell, SelectedCell,
     },
@@ -42,7 +42,7 @@ pub(crate) fn plugin(app: &mut App) {
 
 pub(crate) fn play_board(
     font_assets: &Res<FontAssets>,
-    texture_assets: &Res<TextureAssets>,
+    _texture_assets: &Res<TextureAssets>,
     builder: &mut ChildBuilder,
 ) {
     builder

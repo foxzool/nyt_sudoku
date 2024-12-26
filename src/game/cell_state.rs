@@ -150,3 +150,7 @@ pub struct RevealedCell;
 /// 纠正的格子
 #[derive(Component)]
 pub struct CorrectionCell;
+
+///  选中的格子
+#[derive(Component)]
+pub struct SelectedCell;

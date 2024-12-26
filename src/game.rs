@@ -6,9 +6,10 @@ use crate::{
         cell_state::{
             AutoCandidates, CandidatesValue, CellMode, CellValueBundle, ConflictCell,
             CorrectionCell, DigitValueCell, FixedCell, ManualCandidates, RevealedCell,
+            SelectedCell,
         },
         control_tab::control_board,
-        dialog::{dialog_container, DialogContainer, PauseGame, ShowHint},
+        dialog::{dialog_container, PauseGame, ShowHint},
         input::{keyboard_input, keyboard_move_cell},
         position::CellPosition,
     },
@@ -16,12 +17,7 @@ use crate::{
     share::title_bar,
     GameState,
 };
-use bevy::{
-    color::palettes::{basic::RED, css::LIGHT_YELLOW},
-    prelude::*,
-    time::Stopwatch,
-    utils::{info, HashSet},
-};
+use bevy::{prelude::*, time::Stopwatch, utils::HashSet};
 use sudoku::{
     bitset::Set,
     board::{CellState, Digit},
@@ -425,10 +421,6 @@ fn left_bar(
                 );
         });
 }
-
-///  选中的格子
-#[derive(Component)]
-pub struct SelectedCell;
 
 #[derive(Event)]
 pub enum MoveSelectCell {

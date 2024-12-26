@@ -3,7 +3,6 @@ use crate::loading::{FontAssets, TextureAssets};
 use crate::share::title_bar;
 use crate::GameState;
 use bevy::prelude::*;
-use bevy::winit::cursor::CustomCursor::Image;
 
 pub struct MenuPlugin;
 

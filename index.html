@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-        <title>Bevy sudoku</title>
-        
-        
-        
-        <link rel="icon" href="icon.ico">
-        <style nonce="LShua4QWbijgR7QCxHxGhw==">body, html {
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Nyt sudoku</title>
+    
+    
+    
+    <link rel="icon" href="icon.ico">
+    <style nonce="0WjtnG5jyj9u6Jk35zXnDQ==">body, html {
     height: 100%;
 }
 
@@ -62,9 +62,9 @@ body {
     z-index: 2;
 }
 </style>
-    <link rel="modulepreload" href="./bevy_sudoku-45be8eee110b05d7.js" crossorigin=anonymous integrity="sha384-3fOZjojLotmxABMxhaDBMHGMJjPxwCPaMVJO37qBC1N4Gpfcgs17Ps0eVU2RKAAh"><link rel="preload" href="./bevy_sudoku-45be8eee110b05d7_bg.wasm" crossorigin=anonymous integrity="sha384-+ncFOZUIiG2HDXwdAMecnzV0p2KhID76UPWB9VX1SquIp90botrs2ji1PD8HYAQ+" as="fetch" type="application/wasm"></head>
-    <body>
-        <script nonce="IlmqoF0Ra09y96NQcvRpdA==">// Insert hack to make sound autoplay on Chrome as soon as the user interacts with the tab:
+<link rel="modulepreload" href="./bevy_sudoku-6e8b17f582eb551.js" crossorigin=anonymous integrity="sha384-rc9HvkDI71/c4aBujWLYy6rMU4nvuRKIJLrCUQ9aArwu2GMroyhw6LdYAQmd3ir1"><link rel="preload" href="./bevy_sudoku-6e8b17f582eb551_bg.wasm" crossorigin=anonymous integrity="sha384-GkCUiBvxqH4SInFq1HLycGipWbwTbVulqsigru+VM9G6jmkk7nepvvzaKlgh/zFa" as="fetch" type="application/wasm"></head>
+<body>
+<script nonce="mxWZ5mM5F1ObAraTe/m+0g==">// Insert hack to make sound autoplay on Chrome as soon as the user interacts with the tab:
 // https://developers.google.com/web/updates/2018/11/web-audio-autoplay#moving-forward
 
 // the following function keeps track of all AudioContexts and resumes them on the first user
@@ -127,16 +127,16 @@ body {
     });
 })();
 </script>
-        <div class="game-container">
-            <div class="lds-dual-ring"></div>
-            <canvas id="bevy">
-                Javascript and support for canvas is required
-            </canvas>
-        </div>
-    
-<script type="module" nonce="pH7QxJuwFaeKHtUByiVQwg==">
-import init, * as bindings from './bevy_sudoku-45be8eee110b05d7.js';
-const wasm = await init({ module_or_path: './bevy_sudoku-45be8eee110b05d7_bg.wasm' });
+<div class="game-container" style="width: 100%; height: 100%">
+    <div class="lds-dual-ring"></div>
+    <canvas id="bevy">
+        Javascript and support for canvas is required
+    </canvas>
+</div>
+
+<script type="module" nonce="gwXqHBCFStOJ/7z9txkVnA==">
+import init, * as bindings from './bevy_sudoku-6e8b17f582eb551.js';
+const wasm = await init({ module_or_path: './bevy_sudoku-6e8b17f582eb551_bg.wasm' });
 
 
 window.wasmBindings = bindings;

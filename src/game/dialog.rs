@@ -40,6 +40,7 @@ pub(crate) fn dialog_container(_font_assets: &Res<FontAssets>, builder: &mut Chi
         .observe(|_: Trigger<Pointer<Click>>, mut commands: Commands| {
             commands.trigger(PauseGame(false));
             commands.trigger(ShowHint(false));
+            commands.trigger(ShowSettings(false));
         });
 }
 

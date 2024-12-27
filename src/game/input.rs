@@ -32,7 +32,6 @@ pub(crate) fn keyboard_input(
         return;
     }
 
-    let press_0 = keyboard_input.any_just_pressed([KeyCode::Digit0, KeyCode::Numpad0]);
     let press_1 = keyboard_input.any_just_pressed([KeyCode::Digit1, KeyCode::Numpad1]);
     let press_2 = keyboard_input.any_just_pressed([KeyCode::Digit2, KeyCode::Numpad2]);
     let press_3 = keyboard_input.any_just_pressed([KeyCode::Digit3, KeyCode::Numpad3]);
@@ -63,8 +62,6 @@ pub(crate) fn keyboard_input(
         Some(8)
     } else if press_9 {
         Some(9)
-    } else if press_0 {
-        Some(0)
     } else {
         None
     };

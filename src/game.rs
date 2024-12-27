@@ -535,6 +535,7 @@ fn on_new_digit(
         (Without<FixedCell>, Without<RevealedCell>),
     >,
     mut commands: Commands,
+    settings: Res<Settings>,
 ) {
     let entity = trigger.entity();
     let new_digit = trigger.event().0;
@@ -548,7 +549,11 @@ fn on_new_digit(
         }
 
         cell_value.0 = Some(new_digit);
-        commands.trigger(CheckDigitConflict)
+        commands.trigger(CheckDigitConflict);
+
+        if settings.check_guesses_when_entered {
+            commands.trigger_targets(CheckCell, vec![entity]);
+        }
     }
 }
 
@@ -1154,6 +1159,7 @@ fn on_check_cell(
     q_cell: Query<(&DigitValueCell, &CellPosition), Without<FixedCell>>,
     sudoku_manager: Res<SudokuManager>,
     mut commands: Commands,
+    settings: Res<Settings>,
 ) {
     let entity = trigger.entity();
     if let Ok((cell_value, cell_position)) = q_cell.get(entity) {
@@ -1162,6 +1168,12 @@ fn on_check_cell(
                 if cell_position.0 == index as u8 {
                     if num != Some(digit.get()) {
                         commands.entity(entity).insert(CorrectionCell);
+                    } else {
+                        commands.entity(entity).remove::<CorrectionCell>();
+
+                        if settings.check_guesses_when_entered {
+                            commands.entity(entity).insert(RevealedCell);
+                        }
                     }
                 }
             }

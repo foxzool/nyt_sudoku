@@ -455,7 +455,12 @@ pub struct ManualCandidatesContainer;
 #[derive(Component)]
 pub struct AutoCandidatesContainer;
 
-fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosition)>) {
+fn init_cells(
+    mut commands: Commands,
+    cell_background: Query<(Entity, &CellPosition)>,
+    settings: Res<Settings>,
+    mut auto: ResMut<AutoCandidateMode>,
+) {
     let (sudoku, solution) = loop {
         let sudoku = Sudoku::generate();
         if let Some(solution) = sudoku.solution() {
@@ -464,6 +469,9 @@ fn init_cells(mut commands: Commands, cell_background: Query<(Entity, &CellPosit
     };
 
     info!("sudoku: {:?}", sudoku);
+    if settings.start_in_automatic_mode {
+        *auto = AutoCandidateMode(true);
+    }
 
     let solver = StrategySolver::from_sudoku(sudoku.clone());
 
@@ -1118,7 +1126,13 @@ fn on_reveal_puzzle(
     _trigger: Trigger<RevealPuzzle>,
     q_cell: Query<Entity, (Without<FixedCell>, With<DigitValueCell>)>,
     mut commands: Commands,
+    mut auto: ResMut<AutoCandidateMode>,
+    settings: Res<Settings>,
 ) {
+    if settings.start_in_automatic_mode {
+        *auto = AutoCandidateMode(true);
+    }
+
     let entities = q_cell.iter().collect::<Vec<_>>();
     commands.trigger_targets(RevealCell, entities);
 }

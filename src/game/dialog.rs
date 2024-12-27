@@ -422,7 +422,7 @@ fn fade_out_animation(
 }
 
 #[derive(Default)]
-pub struct Opened(bool);
+pub struct Opened(pub bool);
 
 #[derive(Component)]
 pub struct HintContainer;

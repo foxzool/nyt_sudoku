@@ -1,4 +1,4 @@
-use crate::game::dialog::{ShowCongrats, ShowSettings};
+use crate::game::dialog::{Opened, ShowCongrats, ShowSettings};
 use crate::loading::AudioAssets;
 use crate::{
     color::*,
@@ -277,7 +277,7 @@ fn right_bar(
                 })
                 .observe(
                     |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-                        commands.trigger(ShowMore(true));
+                        commands.trigger(ShowMore);
                     },
                 );
 
@@ -901,7 +901,7 @@ fn update_game_time(
 }
 
 #[derive(Event)]
-pub struct ShowMore(pub bool);
+pub struct ShowMore;
 
 fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
     builder
@@ -928,7 +928,6 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 builder,
                 "Hint",
                 |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
-                    commands.trigger(ShowMore(false));
                     commands.trigger(FindHint);
                 },
             );
@@ -937,7 +936,6 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 builder,
                 "Check Cell",
                 |_: Trigger<Pointer<Click>>, mut commands, q_selected| {
-                    commands.trigger(ShowMore(false));
                     commands.trigger_targets(CheckCell, vec![*q_selected]);
                 },
             );
@@ -946,7 +944,6 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 builder,
                 "Check Puzzle",
                 |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
-                    commands.trigger(ShowMore(false));
                     commands.trigger(CheckPuzzle);
                 },
             );
@@ -955,7 +952,6 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 builder,
                 "Reveal Cell",
                 |_: Trigger<Pointer<Click>>, mut commands, q_selected| {
-                    commands.trigger(ShowMore(false));
                     commands.trigger_targets(RevealCell, vec![*q_selected]);
                 },
             );
@@ -964,7 +960,6 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 builder,
                 "Reveal Puzzle",
                 |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
-                    commands.trigger(ShowMore(false));
                     commands.trigger(RevealPuzzle);
                 },
             );
@@ -973,7 +968,6 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
                 builder,
                 "Reset Puzzle",
                 |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
-                    commands.trigger(ShowMore(false));
                     commands.trigger(ResetPuzzle);
                 },
             );
@@ -1046,15 +1040,17 @@ fn more_item(
 struct ShowMoreContainer;
 
 fn on_show_more(
-    trigger: Trigger<ShowMore>,
+    _trigger: Trigger<ShowMore>,
     mut q_more: Query<&mut Visibility, With<ShowMoreContainer>>,
+    mut opened: Local<Opened>,
 ) {
-    let ShowMore(show_more) = trigger.event();
     for mut vis in q_more.iter_mut() {
-        if *show_more {
-            *vis = Visibility::Visible;
-        } else {
+        if opened.0 {
+            opened.0 = false;
             *vis = Visibility::Hidden;
+        } else {
+            opened.0 = true;
+            *vis = Visibility::Visible;
         }
     }
 }

@@ -421,6 +421,9 @@ fn fade_out_animation(
     }
 }
 
+#[derive(Default)]
+pub struct Opened(bool);
+
 #[derive(Component)]
 pub struct HintContainer;
 
@@ -435,15 +438,19 @@ fn on_hint(
     font_assets: Res<FontAssets>,
     texture_assets: Res<TextureAssets>,
     q_hint: Query<Entity, With<HintContainer>>,
+    mut opened: Local<Opened>,
 ) {
     let (entity, mut visibility) = q_dialog.into_inner();
-    if trigger.event().0 {
+    let show_hint = trigger.event().0;
+    if show_hint && !opened.0 {
+        opened.0 = true;
         time.pause();
         *visibility = Visibility::Visible;
         commands.entity(entity).with_children(|builder| {
             spawn_hint(&font_assets, &texture_assets, builder);
         });
     } else {
+        opened.0 = false;
         time.unpause();
         for hint in q_hint.iter() {
             commands
@@ -468,15 +475,18 @@ fn on_show_settings(
     texture_assets: Res<TextureAssets>,
     q_setting: Query<Entity, With<SettingContainer>>,
     setting: Res<Settings>,
+    mut opened: Local<Opened>
 ) {
     let (entity, mut visibility) = q_dialog.into_inner();
-    if trigger.event().0 {
+    if trigger.event().0 && !opened.0 {
+        opened.0 = true;
         time.pause();
         *visibility = Visibility::Visible;
         commands.entity(entity).with_children(|builder| {
             spawn_settings(&font_assets, &texture_assets, builder, &setting);
         });
     } else {
+        opened.0 = false;
         time.unpause();
         for hint in q_setting.iter() {
             commands

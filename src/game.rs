@@ -1,4 +1,4 @@
-use crate::game::dialog::ShowSettings;
+use crate::game::dialog::{ShowCongrats, ShowSettings};
 use crate::{
     color::*,
     game::{
@@ -45,7 +45,6 @@ impl Plugin for SudokuPlugin {
         app.init_resource::<AutoCandidateMode>()
             .init_resource::<Settings>()
             .add_event::<MoveSelectCell>()
-            .add_event::<SudokuSolved>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
             .add_systems(OnExit(GameState::Playing), cleanup_game)
             .add_systems(
@@ -57,7 +56,6 @@ impl Plugin for SudokuPlugin {
                     show_conflict,
                     kick_candidates,
                     check_solver,
-                    sudoku_solved,
                 )
                     .run_if(in_state(GameState::Playing)),
             )
@@ -82,6 +80,7 @@ impl Plugin for SudokuPlugin {
 pub struct SudokuManager {
     pub solution: Sudoku,
     pub solver: StrategySolver,
+    pub solved: bool,
 }
 
 #[derive(Component)]
@@ -478,6 +477,7 @@ fn init_cells(
     commands.insert_resource(SudokuManager {
         solution,
         solver: solver.clone(),
+        solved: false,
     });
 
     'l: for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
@@ -656,9 +656,13 @@ fn on_clean_cell(
 
 fn check_solver(
     cell_query: Query<(&DigitValueCell, &CellPosition)>,
-    sudoku_manager: Res<SudokuManager>,
+    mut sudoku_manager: ResMut<SudokuManager>,
     mut commands: Commands,
 ) {
+    if sudoku_manager.solved {
+        return;
+    }
+
     let mut solved_count = 0;
     for (cell_value, cell_position) in cell_query
         .iter()
@@ -675,7 +679,8 @@ fn check_solver(
         }
 
         if solved_count == 81 {
-            commands.send_event(SudokuSolved);
+            sudoku_manager.solved = true;
+            commands.trigger(ShowCongrats(true));
         }
     }
 }
@@ -843,7 +848,7 @@ fn cleanup_game(mut commands: Commands, menu: Query<Entity, With<Game>>) {
     }
 }
 
-#[derive(Resource, Default, Deref, DerefMut, Debug)]
+#[derive(Resource, Default, Deref, DerefMut, Debug, Clone)]
 pub struct GameTimer(pub Stopwatch);
 
 impl core::fmt::Display for GameTimer {
@@ -865,8 +870,12 @@ fn update_game_time(
     text: Single<(&mut Text, &mut Visibility), (With<TimerText>, Without<PauseButton>)>,
     mut pause_button: Single<&mut Visibility, (With<PauseButton>, Without<TimerText>)>,
     settings: Res<Settings>,
+    sudoku_manager: Res<SudokuManager>,
 ) {
-    game_timer.tick(time.delta());
+    if !sudoku_manager.solved {
+        game_timer.tick(time.delta());
+    }
+
     let (mut text, mut visibility) = text.into_inner();
     text.0 = game_timer.to_string();
     if settings.show_clock {
@@ -1025,13 +1034,15 @@ struct ShowMoreContainer;
 
 fn on_show_more(
     trigger: Trigger<ShowMore>,
-    mut q_more: Single<&mut Visibility, With<ShowMoreContainer>>,
+    mut q_more: Query<&mut Visibility, With<ShowMoreContainer>>,
 ) {
     let ShowMore(show_more) = trigger.event();
-    if *show_more {
-        **q_more = Visibility::Visible;
-    } else {
-        **q_more = Visibility::Hidden;
+    for mut vis in q_more.iter_mut() {
+        if *show_more {
+            *vis = Visibility::Visible;
+        } else {
+            *vis = Visibility::Hidden;
+        }
     }
 }
 
@@ -1140,15 +1151,6 @@ fn on_reveal_puzzle(
 
     let entities = q_cell.iter().collect::<Vec<_>>();
     commands.trigger_targets(RevealCell, entities);
-}
-
-#[derive(Event)]
-pub struct SudokuSolved;
-
-fn sudoku_solved(mut ev: EventReader<SudokuSolved>, mut time: ResMut<Time<Virtual>>) {
-    for _ in ev.read() {
-        time.pause();
-    }
 }
 
 #[derive(Event)]

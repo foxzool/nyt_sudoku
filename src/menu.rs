@@ -35,7 +35,6 @@ impl Default for ButtonColors {
 struct Menu;
 
 fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets: Res<FontAssets>) {
-    info!("menu");
     commands.spawn((Camera2d, Msaa::Off, Menu));
     commands
         .spawn((

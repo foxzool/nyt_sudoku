@@ -1,5 +1,5 @@
 use crate::color::{DARK_BLACK, WHITE_COLOR};
-use crate::game::Settings;
+use crate::game::{GameTimer, ResetPuzzle, Settings};
 use crate::loading::{FontAssets, TextureAssets};
 use crate::GameState;
 use bevy::prelude::*;
@@ -13,6 +13,7 @@ pub(super) fn plugin(app: &mut App) {
     )
     .add_observer(on_pause_game)
     .add_observer(on_show_settings)
+    .add_observer(on_show_congrats)
     .add_observer(on_hint);
 }
 
@@ -684,4 +685,145 @@ fn click_setting_option(
             }
         }
     }
+}
+
+#[derive(Event)]
+pub struct ShowCongrats(pub bool);
+
+#[derive(Component)]
+pub struct CongratsContainer;
+
+fn on_show_congrats(
+    trigger: Trigger<ShowCongrats>,
+    mut commands: Commands,
+    q_dialog: Single<(Entity, &mut Visibility), With<DialogContainer>>,
+    font_assets: Res<FontAssets>,
+    texture_assets: Res<TextureAssets>,
+    q_congrats: Query<Entity, With<CongratsContainer>>,
+    game_timer: Res<GameTimer>,
+) {
+    let (entity, mut visibility) = q_dialog.into_inner();
+    if trigger.event().0 {
+        *visibility = Visibility::Visible;
+        commands.entity(entity).with_children(|builder| {
+            spawn_congrats(&font_assets, &texture_assets, builder, game_timer.clone());
+        });
+    } else {
+        for congrats in q_congrats.iter() {
+            commands
+                .entity(congrats)
+                .insert(FadeOut(Timer::from_seconds(0.2, TimerMode::Once)));
+        }
+    }
+}
+
+fn spawn_congrats(
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildBuilder,
+    timer: GameTimer,
+) {
+    builder
+        .spawn((
+            Name::new("congrats-container"),
+            CongratsContainer,
+            dialog_child_body(),
+        ))
+        .with_children(|builder| {
+            builder
+                .spawn((
+                    ImageNode {
+                        image: texture_assets.close.clone(),
+                        ..default()
+                    },
+                    Node {
+                        position_type: PositionType::Absolute,
+                        margin: UiRect::all(Val::Px(20.0)),
+                        top: Val::Px(0.0),
+                        right: Val::Px(0.0),
+                        height: Val::Px(18.0),
+                        width: Val::Px(18.0),
+                        ..default()
+                    },
+                ))
+                .observe(
+                    |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+                        commands.trigger(ShowCongrats(false));
+                    },
+                );
+
+            builder.spawn((
+                Name::new("congrats-star"),
+                ImageNode {
+                    image: texture_assets.congrats_star.clone(),
+                    ..default()
+                },
+                Node {
+                    width: Val::Px(55.0),
+                    height: Val::Px(55.0),
+                    margin: UiRect {
+                        bottom: Val::Px(16.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+            ));
+
+            builder.spawn((
+                Node {
+                    margin: UiRect {
+                        top: Val::Px(18.0),
+                        ..default()
+                    },
+                    height: Val::Px(20.0),
+                    ..default()
+                },
+                Text::new(format!("You finished a Easy puzzle in {}", timer)),
+                TextColor(*DARK_BLACK),
+                TextLayout::default(),
+                TextFont {
+                    font: font_assets.franklin_600.clone(),
+                    font_size: 16.0,
+                    ..default()
+                },
+            ));
+
+            builder
+                .spawn((
+                    Name::new("replay-button"),
+                    Button,
+                    Node {
+                        display: Display::Flex,
+                        width: Val::Auto,
+                        margin: UiRect {
+                            top: Val::Px(30.0),
+                            ..default()
+                        },
+                        padding: UiRect::horizontal(Val::Px(38.0)),
+                        min_height: Val::Px(48.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BorderRadius::all(Val::Px(40.0)),
+                    BackgroundColor(*DARK_BLACK),
+                ))
+                .with_children(|builder| {
+                    builder.spawn((
+                        Text::new("Play another Sudoku"),
+                        TextFont {
+                            font_size: 14.0,
+                            font: font_assets.franklin_500.clone(),
+                            ..default()
+                        },
+                        TextColor(WHITE_COLOR),
+                    ));
+                })
+                .observe(
+                    |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+                        commands.trigger(ResetPuzzle);
+                        commands.trigger(ShowCongrats(false));
+                    },
+                );
+        });
 }

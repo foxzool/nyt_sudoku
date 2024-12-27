@@ -43,6 +43,7 @@ impl Plugin for SudokuPlugin {
         board::plugin(app);
         dialog::plugin(app);
         app.init_resource::<AutoCandidateMode>()
+            .init_resource::<Settings>()
             .add_event::<MoveSelectCell>()
             .add_event::<SudokuSolved>()
             .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
@@ -1187,5 +1188,26 @@ fn find_hint(
         .next()
     {
         commands.entity(entity).insert(SelectedCell);
+    }
+}
+
+#[derive(Resource)]
+pub struct Settings {
+    pub check_guesses_when_entered: bool,
+    pub start_in_automatic_mode: bool,
+    pub highlight_conflicts: bool,
+    pub play_sound_on_solve: bool,
+    pub show_clock: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            check_guesses_when_entered: false,
+            start_in_automatic_mode: false,
+            highlight_conflicts: true,
+            play_sound_on_solve: true,
+            show_clock: true,
+        }
     }
 }

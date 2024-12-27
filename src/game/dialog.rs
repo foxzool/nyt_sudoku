@@ -1,4 +1,5 @@
 use crate::color::{DARK_BLACK, WHITE_COLOR};
+use crate::game::Settings;
 use crate::loading::{FontAssets, TextureAssets};
 use crate::GameState;
 use bevy::prelude::*;
@@ -464,13 +465,14 @@ fn on_show_settings(
     font_assets: Res<FontAssets>,
     texture_assets: Res<TextureAssets>,
     q_setting: Query<Entity, With<SettingContainer>>,
+    setting: Res<Settings>,
 ) {
     let (entity, mut visibility) = q_dialog.into_inner();
     if trigger.event().0 {
         time.pause();
         *visibility = Visibility::Visible;
         commands.entity(entity).with_children(|builder| {
-            spawn_settings(&font_assets, &texture_assets, builder);
+            spawn_settings(&font_assets, &texture_assets, builder, &setting);
         });
     } else {
         time.unpause();
@@ -486,6 +488,7 @@ fn spawn_settings(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
     builder: &mut ChildBuilder,
+    settings: &Res<Settings>,
 ) {
     builder
         .spawn((
@@ -524,7 +527,6 @@ fn spawn_settings(
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         // margin: UiRect::all(Val::Px(16.0)),
-
                         ..default()
                     },
                     // BackgroundColor(*DARK_BLACK),
@@ -544,7 +546,7 @@ fn spawn_settings(
                                 ..default()
                             },
                             ..default()
-                        }
+                        },
                     ));
 
                     setting_item(
@@ -552,30 +554,51 @@ fn spawn_settings(
                         texture_assets,
                         builder,
                         "Check guesses when entered",
+                        settings.check_guesses_when_entered,
+                        |_trigger, mut settings| {
+                            settings.check_guesses_when_entered =
+                                !settings.check_guesses_when_entered;
+                        },
                     );
                     setting_item(
                         font_assets,
                         texture_assets,
                         builder,
                         "Start in automatic mode",
+                        settings.start_in_automatic_mode,
+                        |_trigger, mut settings| {
+                            settings.start_in_automatic_mode = !settings.start_in_automatic_mode;
+                        },
                     );
                     setting_item(
                         font_assets,
                         texture_assets,
                         builder,
                         "Highlight conflicts",
+                        settings.highlight_conflicts,
+                        |_trigger, mut settings| {
+                            settings.highlight_conflicts = !settings.highlight_conflicts;
+                        },
                     );
                     setting_item(
                         font_assets,
                         texture_assets,
                         builder,
                         "Play sound on solve",
+                        settings.play_sound_on_solve,
+                        |_trigger, mut settings| {
+                            settings.play_sound_on_solve = !settings.play_sound_on_solve;
+                        },
                     );
                     setting_item(
                         font_assets,
                         texture_assets,
                         builder,
                         "Show clock",
+                        settings.show_clock,
+                        |_trigger, mut settings| {
+                            settings.show_clock = !settings.show_clock;
+                        },
                     );
                 });
         });
@@ -586,10 +609,12 @@ fn setting_item(
     texture_assets: &Res<TextureAssets>,
     builder: &mut ChildBuilder,
     text: &str,
+    checked: bool,
+    change_setting: fn(Trigger<Pointer<Click>>, settings: ResMut<Settings>),
 ) {
     builder
         .spawn((
-            Name::new("auto"),
+            Name::new("text"),
             Node {
                 margin: UiRect {
                     top: Val::Px(10.0),
@@ -599,29 +624,23 @@ fn setting_item(
                 align_items: AlignItems::Center,
                 ..default()
             },
+            CheckOption(checked),
         ))
+        .observe(click_setting_option)
+        .observe(change_setting)
         .with_children(|builder| {
             builder.spawn((
-                ImageNode::new(texture_assets.blank_check.clone()),
+                if checked {
+                    ImageNode::new(texture_assets.check.clone())
+                } else {
+                    ImageNode::new(texture_assets.blank_check.clone())
+                },
                 Node {
                     width: Val::Px(13.0),
                     height: Val::Px(13.0),
                     position_type: PositionType::Absolute,
                     ..default()
                 },
-                Unchecked,
-            ));
-
-            builder.spawn((
-                Visibility::Hidden,
-                ImageNode::new(texture_assets.check.clone()),
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Px(13.0),
-                    height: Val::Px(13.0),
-                    ..default()
-                },
-                Checked,
             ));
 
             builder.spawn((
@@ -644,7 +663,24 @@ fn setting_item(
 }
 
 #[derive(Component)]
-pub struct Checked;
+pub struct CheckOption(pub bool);
 
-#[derive(Component)]
-pub struct Unchecked;
+fn click_setting_option(
+    trigger: Trigger<Pointer<Click>>,
+    mut q_option: Query<(&mut CheckOption, &Children)>,
+    mut q_image: Query<&mut ImageNode>,
+    texture_assets: Res<TextureAssets>,
+) {
+    if let Ok((mut checked, children)) = q_option.get_mut(trigger.entity()) {
+        checked.0 = !checked.0;
+        for child in children {
+            if let Ok(mut image) = q_image.get_mut(*child) {
+                if checked.0 {
+                    image.image = texture_assets.check.clone();
+                } else {
+                    image.image = texture_assets.blank_check.clone();
+                }
+            }
+        }
+    }
+}

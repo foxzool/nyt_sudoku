@@ -1,3 +1,4 @@
+use crate::game::dialog::ShowSettings;
 use crate::{
     color::*,
     game::{
@@ -278,21 +279,27 @@ fn right_bar(
                     },
                 );
 
-            builder.spawn((
-                ImageNode {
-                    image: texture_assets.setting.clone(),
-                    ..default()
-                },
-                Node {
-                    width: Val::Px(20.0),
-                    margin: UiRect {
-                        left: Val::Px(10.0),
-                        right: Val::Px(10.0),
+            builder
+                .spawn((
+                    ImageNode {
+                        image: texture_assets.setting.clone(),
                         ..default()
                     },
-                    ..default()
-                },
-            ));
+                    Node {
+                        width: Val::Px(20.0),
+                        margin: UiRect {
+                            left: Val::Px(10.0),
+                            right: Val::Px(10.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                ))
+                .observe(
+                    |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+                        commands.trigger(ShowSettings(true));
+                    },
+                );
         });
 }
 

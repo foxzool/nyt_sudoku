@@ -11,6 +11,7 @@ pub(super) fn plugin(app: &mut App) {
             .run_if(in_state(GameState::Playing)),
     )
     .add_observer(on_pause_game)
+    .add_observer(on_show_settings)
     .add_observer(on_hint);
 }
 
@@ -39,7 +40,6 @@ pub(crate) fn dialog_container(_font_assets: &Res<FontAssets>, builder: &mut Chi
             commands.trigger(PauseGame(false));
             commands.trigger(ShowHint(false));
         });
-
 }
 
 fn dialog_child_body() -> (Node, BorderRadius, BoxShadow, BackgroundColor) {
@@ -449,3 +449,202 @@ fn on_hint(
         }
     }
 }
+
+#[derive(Event)]
+pub struct ShowSettings(pub bool);
+
+#[derive(Component)]
+pub struct SettingContainer;
+
+fn on_show_settings(
+    trigger: Trigger<ShowSettings>,
+    mut time: ResMut<Time<Virtual>>,
+    mut commands: Commands,
+    q_dialog: Single<(Entity, &mut Visibility), With<DialogContainer>>,
+    font_assets: Res<FontAssets>,
+    texture_assets: Res<TextureAssets>,
+    q_setting: Query<Entity, With<SettingContainer>>,
+) {
+    let (entity, mut visibility) = q_dialog.into_inner();
+    if trigger.event().0 {
+        time.pause();
+        *visibility = Visibility::Visible;
+        commands.entity(entity).with_children(|builder| {
+            spawn_settings(&font_assets, &texture_assets, builder);
+        });
+    } else {
+        time.unpause();
+        for hint in q_setting.iter() {
+            commands
+                .entity(hint)
+                .insert(FadeOut(Timer::from_seconds(0.2, TimerMode::Once)));
+        }
+    }
+}
+
+fn spawn_settings(
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildBuilder,
+) {
+    builder
+        .spawn((
+            Name::new("setting-container"),
+            SettingContainer,
+            dialog_child_body(),
+        ))
+        .with_children(|builder| {
+            builder
+                .spawn((
+                    ImageNode {
+                        image: texture_assets.close.clone(),
+                        ..default()
+                    },
+                    Node {
+                        position_type: PositionType::Absolute,
+                        margin: UiRect::all(Val::Px(20.0)),
+                        top: Val::Px(0.0),
+                        right: Val::Px(0.0),
+                        height: Val::Px(18.0),
+                        width: Val::Px(18.0),
+                        ..default()
+                    },
+                ))
+                .observe(
+                    |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+                        commands.trigger(ShowSettings(false));
+                    },
+                );
+
+            builder
+                .spawn((
+                    Name::new("setting-content"),
+                    Node {
+                        display: Display::Flex,
+                        width: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Column,
+                        // margin: UiRect::all(Val::Px(16.0)),
+
+                        ..default()
+                    },
+                    // BackgroundColor(*DARK_BLACK),
+                ))
+                .with_children(|builder| {
+                    builder.spawn((
+                        Text::new("Settings"),
+                        TextFont {
+                            font_size: 28.0,
+                            font: font_assets.karnak.clone(),
+                            ..default()
+                        },
+                        TextColor(*DARK_BLACK),
+                        Node {
+                            margin: UiRect {
+                                bottom: Val::Px(20.0),
+                                ..default()
+                            },
+                            ..default()
+                        }
+                    ));
+
+                    setting_item(
+                        font_assets,
+                        texture_assets,
+                        builder,
+                        "Check guesses when entered",
+                    );
+                    setting_item(
+                        font_assets,
+                        texture_assets,
+                        builder,
+                        "Start in automatic mode",
+                    );
+                    setting_item(
+                        font_assets,
+                        texture_assets,
+                        builder,
+                        "Highlight conflicts",
+                    );
+                    setting_item(
+                        font_assets,
+                        texture_assets,
+                        builder,
+                        "Play sound on solve",
+                    );
+                    setting_item(
+                        font_assets,
+                        texture_assets,
+                        builder,
+                        "Show clock",
+                    );
+                });
+        });
+}
+
+fn setting_item(
+    font_assets: &Res<FontAssets>,
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildBuilder,
+    text: &str,
+) {
+    builder
+        .spawn((
+            Name::new("auto"),
+            Node {
+                margin: UiRect {
+                    top: Val::Px(10.0),
+                    ..default()
+                },
+                display: Display::Flex,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+        ))
+        .with_children(|builder| {
+            builder.spawn((
+                ImageNode::new(texture_assets.blank_check.clone()),
+                Node {
+                    width: Val::Px(13.0),
+                    height: Val::Px(13.0),
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                Unchecked,
+            ));
+
+            builder.spawn((
+                Visibility::Hidden,
+                ImageNode::new(texture_assets.check.clone()),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(13.0),
+                    height: Val::Px(13.0),
+                    ..default()
+                },
+                Checked,
+            ));
+
+            builder.spawn((
+                Text::new(text),
+                TextFont {
+                    font: font_assets.franklin_600.clone(),
+                    font_size: 16.0,
+                    ..default()
+                },
+                TextColor(*DARK_BLACK),
+                Node {
+                    margin: UiRect {
+                        left: Val::Px(18.0),
+                        ..default()
+                    },
+                    ..default()
+                },
+            ));
+        });
+}
+
+#[derive(Component)]
+pub struct Checked;
+
+#[derive(Component)]
+pub struct Unchecked;

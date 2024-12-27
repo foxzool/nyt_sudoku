@@ -358,6 +358,7 @@ fn center_bar(
                         width: Val::Px(11.0),
                         ..default()
                     },
+                    PauseButton,
                 ))
                 .observe(
                     |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
@@ -366,6 +367,9 @@ fn center_bar(
                 );
         });
 }
+
+#[derive(Component)]
+struct PauseButton;
 
 fn left_bar(
     font_assets: &Res<FontAssets>,
@@ -845,10 +849,20 @@ struct TimerText;
 fn update_game_time(
     mut game_timer: ResMut<GameTimer>,
     time: Res<Time>,
-    mut text: Single<&mut Text, With<TimerText>>,
+    text: Single<(&mut Text, &mut Visibility), (With<TimerText>, Without<PauseButton>)>,
+    mut pause_button: Single<&mut Visibility, (With<PauseButton>, Without<TimerText>)>,
+    settings: Res<Settings>,
 ) {
     game_timer.tick(time.delta());
+    let (mut text, mut visibility) = text.into_inner();
     text.0 = game_timer.to_string();
+    if settings.show_clock {
+        *visibility = Visibility::Visible;
+        **pause_button = Visibility::Visible;
+    } else {
+        *visibility = Visibility::Hidden;
+        **pause_button = Visibility::Hidden;
+    }
 }
 
 #[derive(Event)]

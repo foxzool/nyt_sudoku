@@ -1,4 +1,5 @@
 use crate::game::cell_state::{ConflictCell, CorrectionCell};
+use crate::game::Settings;
 use crate::{
     color::*,
     game::{
@@ -33,6 +34,7 @@ pub(crate) fn plugin(app: &mut App) {
         Update,
         switch_candidate_cell_mode.run_if(resource_changed::<AutoCandidateMode>),
     )
+    .add_systems(Update, conflict_vis.run_if(resource_changed::<Settings>))
     .add_observer(move_select_cell)
     .add_observer(on_insert_conflict)
     .add_observer(remove_child_cell::<ConflictCell, ConflictContainer>)
@@ -662,6 +664,19 @@ fn on_insert_conflict(
     commands.entity(trigger.entity()).with_children(|builder| {
         spawn_conflict_container(&texture_assets, builder);
     });
+}
+
+fn conflict_vis(
+    settings: Res<Settings>,
+    mut q_conflict: Query<&mut Visibility, With<ConflictContainer>>,
+) {
+    for mut vis in q_conflict.iter_mut() {
+        if settings.highlight_conflicts {
+            *vis = Visibility::Visible;
+        } else {
+            *vis = Visibility::Hidden;
+        }
+    }
 }
 
 fn remove_child_cell<E: Component, C: Component>(

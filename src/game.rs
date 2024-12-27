@@ -1,4 +1,5 @@
 use crate::game::dialog::{ShowCongrats, ShowSettings};
+use crate::loading::AudioAssets;
 use crate::{
     color::*,
     game::{
@@ -19,6 +20,7 @@ use crate::{
     GameState,
 };
 use bevy::{prelude::*, time::Stopwatch, utils::HashSet};
+use bevy_kira_audio::{Audio, AudioControl};
 use sudoku::{
     bitset::Set,
     board::{CellState, Digit},
@@ -658,6 +660,9 @@ fn check_solver(
     cell_query: Query<(&DigitValueCell, &CellPosition)>,
     mut sudoku_manager: ResMut<SudokuManager>,
     mut commands: Commands,
+    audio: Res<Audio>,
+    audio_assets: Res<AudioAssets>,
+    settings: Res<Settings>,
 ) {
     if sudoku_manager.solved {
         return;
@@ -680,6 +685,14 @@ fn check_solver(
 
         if solved_count == 81 {
             sudoku_manager.solved = true;
+
+            if settings.play_sound_on_solve {
+                audio
+                    .play(audio_assets.congrats.clone())
+                    // .with_volume(0.3)
+                    .handle();
+            }
+
             commands.trigger(ShowCongrats(true));
         }
     }

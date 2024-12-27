@@ -14,6 +14,7 @@ use crate::color::WHITE_COLOR;
 use bevy::app::App;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+use bevy_kira_audio::AudioPlugin;
 
 // This example game uses States to separate game
 // See https://bevy-cheatbook.github.io/programming/states.html
@@ -35,11 +36,11 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameState>()
             .insert_resource(ClearColor(WHITE_COLOR))
-            .add_plugins((LoadingPlugin, MenuPlugin, SudokuPlugin));
+            .add_plugins((LoadingPlugin, MenuPlugin, SudokuPlugin, AudioPlugin));
 
-        // #[cfg(debug_assertions)]
-        // {
-        //     app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
-        // }
+        #[cfg(debug_assertions)]
+        {
+            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
+        }
     }
 }

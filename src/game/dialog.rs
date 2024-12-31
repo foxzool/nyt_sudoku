@@ -347,7 +347,7 @@ fn on_pause_game(
 ) {
     let (entity, mut visibility) = q_dialog.into_inner();
     if ev.event().0 {
-        if time.is_paused() || sudoku_manager.solved {
+        if time.is_paused() || sudoku_manager.is_solved {
             return;
         }
 

@@ -47,7 +47,7 @@ impl Plugin for SudokuPlugin {
         app.init_resource::<AutoCandidateMode>()
             .init_resource::<Settings>()
             .add_event::<MoveSelectCell>()
-            .add_systems(OnEnter(GameState::Playing), (setup_ui, init_cells).chain())
+            .add_systems(OnEnter(GameState::Playing), setup_ui)
             .add_systems(OnExit(GameState::Playing), cleanup_game)
             .add_systems(
                 Update,
@@ -64,6 +64,7 @@ impl Plugin for SudokuPlugin {
             .add_observer(on_new_digit)
             .add_observer(on_new_candidate)
             .add_observer(check_conflict)
+            .add_observer(init_puzzle)
             .add_observer(find_hint)
             .add_observer(on_clean_cell)
             .add_observer(on_select_cell)
@@ -73,8 +74,7 @@ impl Plugin for SudokuPlugin {
             .add_observer(on_reveal_cell)
             .add_observer(on_reveal_puzzle)
             .add_observer(on_check_cell)
-            .add_observer(on_check_puzzle)
-            .add_observer(on_show_more);
+            .add_observer(on_check_puzzle);
     }
 }
 
@@ -82,7 +82,7 @@ impl Plugin for SudokuPlugin {
 pub struct SudokuManager {
     pub solution: Sudoku,
     pub solver: StrategySolver,
-    pub solved: bool,
+    pub is_solved: bool,
 }
 
 #[derive(Component)]
@@ -164,6 +164,8 @@ fn setup_ui(
                         });
                 });
         });
+
+    commands.trigger(InitPuzzle);
 }
 
 fn toolbars(
@@ -209,7 +211,7 @@ fn toolbars(
 }
 
 fn right_bar(
-    font_assets: &Res<FontAssets>,
+    _font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
     builder: &mut ChildBuilder,
 ) {
@@ -272,14 +274,10 @@ fn right_bar(
                         ..default()
                     },
                 ))
-                .with_children(|builder| {
-                    spawn_show_more(font_assets, builder);
-                })
-                .observe(
-                    |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-                        commands.trigger(ShowMore);
-                    },
-                );
+                // .with_children(|builder| {
+                //     spawn_show_more(font_assets, builder);
+                // })
+                .observe(on_show_more);
 
             builder
                 .spawn((
@@ -456,7 +454,11 @@ pub struct ManualCandidatesContainer;
 #[derive(Component)]
 pub struct AutoCandidatesContainer;
 
-fn init_cells(
+#[derive(Event)]
+pub struct InitPuzzle;
+
+fn init_puzzle(
+    _ev: Trigger<InitPuzzle>,
     mut commands: Commands,
     cell_background: Query<(Entity, &CellPosition)>,
     settings: Res<Settings>,
@@ -479,7 +481,7 @@ fn init_cells(
     commands.insert_resource(SudokuManager {
         solution,
         solver: solver.clone(),
-        solved: false,
+        is_solved: false,
     });
 
     'l: for (index, cell_state) in solver.grid_state().into_iter().enumerate() {
@@ -502,6 +504,11 @@ fn init_cells(
                 if index == 0 {
                     commands.entity(entity).insert(SelectedCell);
                 }
+
+                commands
+                    .entity(entity)
+                    .remove::<ConflictCell>()
+                    .remove::<RevealedCell>();
 
                 continue 'l;
             }
@@ -664,7 +671,7 @@ fn check_solver(
     audio_assets: Res<AudioAssets>,
     settings: Res<Settings>,
 ) {
-    if sudoku_manager.solved {
+    if sudoku_manager.is_solved {
         return;
     }
 
@@ -682,7 +689,7 @@ fn check_solver(
         }
 
         if solved_count == 81 {
-            sudoku_manager.solved = true;
+            sudoku_manager.is_solved = true;
 
             if settings.play_sound_on_solve {
                 audio
@@ -883,7 +890,7 @@ fn update_game_time(
     settings: Res<Settings>,
     sudoku_manager: Res<SudokuManager>,
 ) {
-    if !sudoku_manager.solved {
+    if !sudoku_manager.is_solved {
         game_timer.tick(time.delta());
     }
 
@@ -898,14 +905,10 @@ fn update_game_time(
     }
 }
 
-#[derive(Event)]
-pub struct ShowMore;
-
-fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
+fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder, is_solved: bool) {
     builder
         .spawn((
             ShowMoreContainer,
-            Visibility::Hidden,
             Name::new("show-more-container"),
             Node {
                 top: Val::Px(30.0),
@@ -921,54 +924,65 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
             GlobalZIndex(99),
         ))
         .with_children(|builder| {
-            more_item(
-                font_assets,
-                builder,
-                "Hint",
-                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
-                    commands.trigger(FindHint);
-                },
-            );
-            more_item(
-                font_assets,
-                builder,
-                "Check Cell",
-                |_: Trigger<Pointer<Click>>, mut commands, q_selected| {
-                    commands.trigger_targets(CheckCell, vec![*q_selected]);
-                },
-            );
-            more_item(
-                font_assets,
-                builder,
-                "Check Puzzle",
-                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
-                    commands.trigger(CheckPuzzle);
-                },
-            );
-            more_item(
-                font_assets,
-                builder,
-                "Reveal Cell",
-                |_: Trigger<Pointer<Click>>, mut commands, q_selected| {
-                    commands.trigger_targets(RevealCell, vec![*q_selected]);
-                },
-            );
-            more_item(
-                font_assets,
-                builder,
-                "Reveal Puzzle",
-                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
-                    commands.trigger(RevealPuzzle);
-                },
-            );
-            more_item(
-                font_assets,
-                builder,
-                "Reset Puzzle",
-                |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
-                    commands.trigger(ResetPuzzle);
-                },
-            );
+            if is_solved {
+                more_item(
+                    font_assets,
+                    builder,
+                    "Reset Puzzle",
+                    |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
+                        commands.trigger(InitPuzzle);
+                    },
+                );
+            } else {
+                more_item(
+                    font_assets,
+                    builder,
+                    "Hint",
+                    |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
+                        commands.trigger(FindHint);
+                    },
+                );
+                more_item(
+                    font_assets,
+                    builder,
+                    "Check Cell",
+                    |_: Trigger<Pointer<Click>>, mut commands, q_selected| {
+                        commands.trigger_targets(CheckCell, vec![*q_selected]);
+                    },
+                );
+                more_item(
+                    font_assets,
+                    builder,
+                    "Check Puzzle",
+                    |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
+                        commands.trigger(CheckPuzzle);
+                    },
+                );
+                more_item(
+                    font_assets,
+                    builder,
+                    "Reveal Cell",
+                    |_: Trigger<Pointer<Click>>, mut commands, q_selected| {
+                        commands.trigger_targets(RevealCell, vec![*q_selected]);
+                    },
+                );
+                more_item(
+                    font_assets,
+                    builder,
+                    "Reveal Puzzle",
+                    |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
+                        commands.trigger(RevealPuzzle);
+                    },
+                );
+                more_item(
+                    font_assets,
+                    builder,
+                    "Reset Puzzle",
+                    |_: Trigger<Pointer<Click>>, mut commands, _q_selected| {
+                        commands.trigger(ResetPuzzle);
+                    },
+                );
+            }
         });
 }
 
@@ -1038,18 +1052,25 @@ fn more_item(
 struct ShowMoreContainer;
 
 fn on_show_more(
-    _trigger: Trigger<ShowMore>,
-    mut q_more: Query<&mut Visibility, With<ShowMoreContainer>>,
+    trigger: Trigger<Pointer<Click>>,
+    q_more: Query<Entity, With<ShowMoreContainer>>,
     mut opened: Local<Opened>,
+    font_assets: Res<FontAssets>,
+    mut commands: Commands,
+    sudoku_manager: Res<SudokuManager>,
 ) {
-    for mut vis in q_more.iter_mut() {
-        if opened.0 {
-            opened.0 = false;
-            *vis = Visibility::Hidden;
-        } else {
-            opened.0 = true;
-            *vis = Visibility::Visible;
+    let parent = trigger.entity();
+
+    if opened.0 {
+        opened.0 = false;
+        for entity in q_more.iter() {
+            commands.entity(entity).despawn_recursive();
         }
+    } else {
+        opened.0 = true;
+        commands.entity(parent).with_children(|builder| {
+            spawn_show_more(&font_assets, builder, sudoku_manager.is_solved);
+        });
     }
 }
 

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use std::ops::BitXorAssign;
 use bevy::utils::HashSet;
+use std::ops::BitXorAssign;
 use sudoku::bitset::Set;
 use sudoku::board::{CellState, Digit};
 

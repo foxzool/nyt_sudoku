@@ -20,7 +20,6 @@ impl Plugin for LoadingPlugin {
     }
 }
 
-
 // the following asset collections will be loaded during the State `GameState::Loading`
 // when done loading, they will be inserted as resources (see <https://github.com/NiklasEi/bevy_asset_loader>)
 
@@ -62,7 +61,6 @@ pub struct TextureAssets {
     pub correction: Handle<Image>,
     #[asset(path = "textures/congrats-star.png")]
     pub congrats_star: Handle<Image>,
-
 }
 
 #[derive(AssetCollection, Resource)]

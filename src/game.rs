@@ -199,11 +199,11 @@ fn toolbars(
                 ))
                 .with_children(|builder| {
                     // left bar
-                    left_bar(&font_assets, &texture_assets, builder);
+                    left_bar(font_assets, texture_assets, builder);
                     // center bar
-                    center_bar(&font_assets, &texture_assets, builder);
+                    center_bar(font_assets, texture_assets, builder);
                     // right bar
-                    right_bar(&font_assets, &texture_assets, builder);
+                    right_bar(font_assets, texture_assets, builder);
                 });
         });
 }
@@ -273,7 +273,7 @@ fn right_bar(
                     },
                 ))
                 .with_children(|builder| {
-                    spawn_show_more(&font_assets, builder);
+                    spawn_show_more(font_assets, builder);
                 })
                 .observe(
                     |_trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
@@ -474,7 +474,7 @@ fn init_cells(
         *auto = AutoCandidateMode(true);
     }
 
-    let solver = StrategySolver::from_sudoku(sudoku.clone());
+    let solver = StrategySolver::from_sudoku(sudoku);
 
     commands.insert_resource(SudokuManager {
         solution,
@@ -675,10 +675,8 @@ fn check_solver(
     {
         if let Some(digit) = cell_value.0 {
             for (index, num) in sudoku_manager.solution.iter().enumerate() {
-                if cell_position.0 == index as u8 {
-                    if Some(num.unwrap()) == Some(digit.get()) {
-                        solved_count += 1;
-                    }
+                if cell_position.0 == index as u8 && Some(num.unwrap()) == Some(digit.get()) {
+                    solved_count += 1;
                 }
             }
         }
@@ -1207,10 +1205,8 @@ fn on_check_puzzle(
     for (entity, cell_value, cell_position) in q_cell.iter() {
         if let Some(digit) = cell_value.0 {
             for (index, num) in sudoku_manager.solution.iter().enumerate() {
-                if cell_position.0 == index as u8 {
-                    if num != Some(digit.get()) {
-                        commands.entity(entity).insert(CorrectionCell);
-                    }
+                if cell_position.0 == index as u8 && num != Some(digit.get()) {
+                    commands.entity(entity).insert(CorrectionCell);
                 }
             }
         }
@@ -1238,7 +1234,6 @@ fn find_hint(
 
             candidate_1.0.len().cmp(&candidate_2.0.len())
         })
-        .into_iter()
         .next()
     {
         commands.entity(entity).insert(SelectedCell);

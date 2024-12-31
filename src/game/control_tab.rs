@@ -457,16 +457,14 @@ fn switch_control_tab_ui(
                     bottom: Val::Px(1.0),
                 }
             }
+        } else if change_tab.0 == ControlTab::Candidate {
+            node.border = UiRect::all(Val::Px(0.0));
         } else {
-            if change_tab.0 == ControlTab::Candidate {
-                node.border = UiRect::all(Val::Px(0.0));
-            } else {
-                node.border = UiRect {
-                    left: Val::Px(1.0),
-                    right: Val::Px(0.0),
-                    top: Val::Px(1.0),
-                    bottom: Val::Px(1.0),
-                }
+            node.border = UiRect {
+                left: Val::Px(1.0),
+                right: Val::Px(0.0),
+                top: Val::Px(1.0),
+                bottom: Val::Px(1.0),
             }
         }
     }

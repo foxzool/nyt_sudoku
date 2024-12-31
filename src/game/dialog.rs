@@ -11,10 +11,10 @@ pub(super) fn plugin(app: &mut App) {
         (check_window_focus, fade_in_animation, fade_out_animation)
             .run_if(in_state(GameState::Playing)),
     )
-    .add_observer(on_pause_game)
-    .add_observer(on_show_settings)
-    .add_observer(on_show_congrats)
-    .add_observer(on_hint);
+        .add_observer(on_pause_game)
+        .add_observer(on_show_settings)
+        .add_observer(on_show_congrats)
+        .add_observer(on_hint);
 }
 
 pub(crate) fn dialog_container(_font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
@@ -430,6 +430,7 @@ pub struct HintContainer;
 #[derive(Event)]
 pub struct ShowHint(pub bool);
 
+#[allow(clippy::too_many_arguments)]
 fn on_hint(
     trigger: Trigger<ShowHint>,
     mut time: ResMut<Time<Virtual>>,
@@ -466,6 +467,7 @@ pub struct ShowSettings(pub bool);
 #[derive(Component)]
 pub struct SettingContainer;
 
+#[allow(clippy::too_many_arguments)]
 fn on_show_settings(
     trigger: Trigger<ShowSettings>,
     mut time: ResMut<Time<Virtual>>,
@@ -475,7 +477,7 @@ fn on_show_settings(
     texture_assets: Res<TextureAssets>,
     q_setting: Query<Entity, With<SettingContainer>>,
     setting: Res<Settings>,
-    mut opened: Local<Opened>
+    mut opened: Local<Opened>,
 ) {
     let (entity, mut visibility) = q_dialog.into_inner();
     if trigger.event().0 && !opened.0 {

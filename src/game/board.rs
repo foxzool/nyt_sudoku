@@ -473,12 +473,10 @@ fn candidate_cell_out<M: CandidateMarker>(
     if let Ok(manual_marker) = cell.get(trigger.entity()) {
         for ancestor in parent_query.iter_ancestors(trigger.entity()) {
             if let Ok(cell_mode) = q_select.get(ancestor) {
-                if *cell_mode != CellMode::Digit {
-                    if !manual_marker.selected() {
-                        commands
-                            .entity(trigger.entity())
-                            .insert(PreviewCandidate::default());
-                    }
+                if *cell_mode != CellMode::Digit && !manual_marker.selected() {
+                    commands
+                        .entity(trigger.entity())
+                        .insert(PreviewCandidate::default());
                 }
             }
         }

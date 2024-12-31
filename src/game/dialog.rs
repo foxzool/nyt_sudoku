@@ -1,5 +1,5 @@
 use crate::color::{DARK_BLACK, WHITE_COLOR};
-use crate::game::{GameTimer, ResetPuzzle, Settings};
+use crate::game::{GameTimer, ResetPuzzle, Settings, SudokuManager};
 use crate::loading::{FontAssets, TextureAssets};
 use crate::GameState;
 use bevy::prelude::*;
@@ -11,10 +11,10 @@ pub(super) fn plugin(app: &mut App) {
         (check_window_focus, fade_in_animation, fade_out_animation)
             .run_if(in_state(GameState::Playing)),
     )
-        .add_observer(on_pause_game)
-        .add_observer(on_show_settings)
-        .add_observer(on_show_congrats)
-        .add_observer(on_hint);
+    .add_observer(on_pause_game)
+    .add_observer(on_show_settings)
+    .add_observer(on_show_congrats)
+    .add_observer(on_hint);
 }
 
 pub(crate) fn dialog_container(_font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
@@ -343,10 +343,11 @@ fn on_pause_game(
     q_dialog: Single<(Entity, &mut Visibility), With<DialogContainer>>,
     font_assets: Res<FontAssets>,
     q_pause: Query<Entity, With<PauseContainer>>,
+    sudoku_manager: Res<SudokuManager>,
 ) {
     let (entity, mut visibility) = q_dialog.into_inner();
     if ev.event().0 {
-        if time.is_paused() {
+        if time.is_paused() || sudoku_manager.solved {
             return;
         }
 

@@ -1137,7 +1137,10 @@ fn on_reveal_cell(
             if cell_position.0 == index as u8 {
                 let num = num.unwrap();
                 commands.trigger_targets(NewDigit::new(num), vec![entity]);
-                commands.entity(entity).insert(RevealedCell);
+                commands
+                    .entity(entity)
+                    .remove::<CorrectionCell>()
+                    .insert(RevealedCell);
                 return;
             }
         }

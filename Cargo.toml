@@ -1,6 +1,6 @@
 [package]
 name = "bevy_sudoku"
-version = "0.1.0"
+version = "0.1.1"
 publish = false
 authors = ["FoxZoOL <zhooul@gmail.com>"]
 description = "A nyt sudoku game clone made by Bevy."
@@ -8,7 +8,7 @@ edition = "2021"
 exclude = ["dist", "build", "assets", "credits"]
 readme = "README.md"
 repository = "https://github.com/foxzool/nyt_sudoku"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 keywords = ["bevy", "sudoku", "game"]
 categories = ["game-development"]
 homepage = "https://github.com/foxzool/nyt_sudoku"

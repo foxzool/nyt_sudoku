@@ -1,5 +1,4 @@
-use bevy::color::Color;
-use bevy::prelude::Srgba;
+use bevy::{color::Color, prelude::Srgba};
 use std::sync::LazyLock;
 
 pub static WHITE_COLOR: Color = Color::WHITE;

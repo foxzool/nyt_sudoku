@@ -1,9 +1,10 @@
-use crate::color::{DARK_BLACK, WHITE_COLOR};
-use crate::game::{GameTimer, ResetPuzzle, Settings, SudokuManager};
-use crate::loading::{FontAssets, TextureAssets};
-use crate::GameState;
-use bevy::prelude::*;
-use bevy::window::WindowFocused;
+use crate::{
+    GameState,
+    color::{DARK_BLACK, WHITE_COLOR},
+    game::{GameTimer, ResetPuzzle, Settings, SudokuManager},
+    loading::{FontAssets, TextureAssets},
+};
+use bevy::{prelude::*, window::WindowFocused};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(
@@ -17,7 +18,10 @@ pub(super) fn plugin(app: &mut App) {
     .add_observer(on_hint);
 }
 
-pub(crate) fn dialog_container(_font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
+pub(crate) fn dialog_container(
+    _font_assets: &Res<FontAssets>,
+    builder: &mut ChildSpawnerCommands<'_>,
+) {
     builder
         .spawn((
             Name::new("dialog-container"),
@@ -62,18 +66,18 @@ fn dialog_child_body() -> (Node, BorderRadius, BoxShadow, BackgroundColor) {
             ..default()
         },
         BorderRadius::all(Val::Px(4.0)),
-        BoxShadow {
-            color: Color::BLACK.with_alpha(0.8),
-            x_offset: Val::Px(0.0),
-            y_offset: Val::Px(3.0),
-            spread_radius: Val::Px(-1.0),
-            blur_radius: Val::Px(12.0),
-        },
+        BoxShadow::new(
+            Color::BLACK.with_alpha(0.8),
+            Val::Px(0.0),
+            Val::Px(3.0),
+            Val::Px(-1.0),
+            Val::Px(12.0),
+        ),
         BackgroundColor(WHITE_COLOR),
     )
 }
 
-fn spawn_pause(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
+fn spawn_pause(font_assets: &Res<FontAssets>, builder: &mut ChildSpawnerCommands<'_>) {
     builder
         .spawn((
             Name::new("pause-container"),
@@ -143,7 +147,7 @@ fn spawn_pause(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
 fn spawn_hint(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
 ) {
     builder
         .spawn((
@@ -287,7 +291,7 @@ fn spawn_hint(
 fn ui_list(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
     text: &str,
 ) {
     builder
@@ -417,7 +421,7 @@ fn fade_out_animation(
         node.bottom = Val::Px(-fade_out.percent() * 60.0);
         if fade_out.0.just_finished() {
             **q_dialog = Visibility::Hidden;
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -502,7 +506,7 @@ fn on_show_settings(
 fn spawn_settings(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
     settings: &Res<Settings>,
 ) {
     builder
@@ -622,7 +626,7 @@ fn spawn_settings(
 fn setting_item(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
     text: &str,
     checked: bool,
     change_setting: fn(Trigger<Pointer<Click>>, settings: ResMut<Settings>),
@@ -686,7 +690,7 @@ fn click_setting_option(
     mut q_image: Query<&mut ImageNode>,
     texture_assets: Res<TextureAssets>,
 ) {
-    if let Ok((mut checked, children)) = q_option.get_mut(trigger.entity()) {
+    if let Ok((mut checked, children)) = q_option.get_mut(trigger.target()) {
         checked.0 = !checked.0;
         for child in children {
             if let Ok(mut image) = q_image.get_mut(*child) {
@@ -733,7 +737,7 @@ fn on_show_congrats(
 fn spawn_congrats(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
     timer: GameTimer,
 ) {
     builder

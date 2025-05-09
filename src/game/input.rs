@@ -1,5 +1,5 @@
 use crate::game::{
-    control_tab::ToggleTab, CleanCell, MoveSelectCell, NewCandidate, NewDigit, SelectedCell,
+    CleanCell, MoveSelectCell, NewCandidate, NewDigit, SelectedCell, control_tab::ToggleTab,
 };
 use bevy::prelude::*;
 

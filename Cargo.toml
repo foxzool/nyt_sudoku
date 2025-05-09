@@ -1,10 +1,10 @@
 [package]
 name = "bevy_sudoku"
-version = "0.1.1"
+version = "0.2.0"
 publish = false
 authors = ["FoxZoOL <zhooul@gmail.com>"]
 description = "A nyt sudoku game clone made by Bevy."
-edition = "2021"
+edition = "2024"
 exclude = ["dist", "build", "assets", "credits"]
 readme = "README.md"
 repository = "https://github.com/foxzool/nyt_sudoku"
@@ -46,7 +46,7 @@ dev = [
 # All of Bevy's default features exept for the audio related ones (bevy_audio, vorbis), since they clash with bevy_kira_audio
 #   and android_shared_stdcxx/android-game-activity, since those are covered in `mobile`
 [dependencies]
-bevy = { version = "0.15", default-features = false, features = [
+bevy = { version = "0.16", default-features = false, features = [
     "animation",
     "bevy_asset",
     "bevy_color",
@@ -79,8 +79,8 @@ bevy = { version = "0.15", default-features = false, features = [
     "x11",
     "mp3"
 ] }
-bevy_kira_audio = { version = "0.21", features = ["mp3"] }
-bevy_asset_loader = { version = "0.22" }
+bevy_kira_audio = { version = "0.23", features = ["mp3"] }
+bevy_asset_loader = { version = "0.23.0-rc.4" }
 rand = { version = "0.8.3" }
 webbrowser = { version = "1", features = ["hardened"] }
 

@@ -1,31 +1,28 @@
-use crate::game::dialog::{Opened, ShowCongrats, ShowSettings};
-use crate::loading::AudioAssets;
 use crate::{
+    GameState,
     color::*,
     game::{
-        board::ConflictContainer,
-        board::{play_board, PreviewCandidate},
+        board::{ConflictContainer, PreviewCandidate, play_board},
         cell_state::{
             AutoCandidates, CandidatesValue, CellMode, CellValueBundle, ConflictCell,
             CorrectionCell, DigitValueCell, FixedCell, ManualCandidates, RevealedCell,
             SelectedCell,
         },
         control_tab::control_board,
-        dialog::{dialog_container, PauseGame, ShowHint},
+        dialog::{Opened, PauseGame, ShowCongrats, ShowHint, ShowSettings, dialog_container},
         input::{keyboard_input, keyboard_move_cell},
         position::CellPosition,
     },
-    loading::{FontAssets, TextureAssets},
+    loading::{AudioAssets, FontAssets, TextureAssets},
     share::title_bar,
-    GameState,
 };
-use bevy::{prelude::*, time::Stopwatch, utils::HashSet};
+use bevy::{platform::collections::HashSet, prelude::*, time::Stopwatch};
 use bevy_kira_audio::{Audio, AudioControl};
 use sudoku::{
+    Sudoku,
     bitset::Set,
     board::{CellState, Digit},
     strategy::StrategySolver,
-    Sudoku,
 };
 
 mod board;
@@ -171,7 +168,7 @@ fn setup_ui(
 fn toolbars(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
 ) {
     builder
         .spawn((
@@ -213,7 +210,7 @@ fn toolbars(
 fn right_bar(
     _font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
 ) {
     builder
         .spawn((
@@ -306,7 +303,7 @@ fn right_bar(
 fn center_bar(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
 ) {
     builder
         .spawn((
@@ -373,7 +370,7 @@ struct PauseButton;
 fn left_bar(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
 ) {
     builder
         .spawn((
@@ -517,7 +514,7 @@ fn init_puzzle(
 }
 
 fn on_select_cell(trigger: Trigger<OnInsert, SelectedCell>, mut cell: Query<&mut BackgroundColor>) {
-    let entity = trigger.entity();
+    let entity = trigger.target();
     if let Ok(mut background) = cell.get_mut(entity) {
         background.0 = *STRANDS_YELLOW;
     }
@@ -527,7 +524,7 @@ fn on_unselect_cell(
     trigger: Trigger<OnRemove, SelectedCell>,
     mut cell: Query<(&mut BackgroundColor, Option<&FixedCell>)>,
 ) {
-    let entity = trigger.entity();
+    let entity = trigger.target();
     if let Ok((mut background, opt_fixed)) = cell.get_mut(entity) {
         if opt_fixed.is_some() {
             background.0 = *EXTRA_LIGHT_GRAY;
@@ -546,7 +543,7 @@ fn on_new_digit(
     mut commands: Commands,
     settings: Res<Settings>,
 ) {
-    let entity = trigger.entity();
+    let entity = trigger.target();
     let new_digit = trigger.event().0;
     if let Ok((mut cell_value, mut cell_mode)) = q_cell.get_mut(entity) {
         *cell_mode = CellMode::Digit;
@@ -633,7 +630,7 @@ fn on_clean_cell(
     mut commands: Commands,
 ) {
     if let Ok((entity, mut digit_value, mut manual_candidates, mut cell_mode)) =
-        q_cell.get_mut(trigger.entity())
+        q_cell.get_mut(trigger.target())
     {
         match *cell_mode {
             CellMode::Digit => {
@@ -774,7 +771,7 @@ fn check_conflict(
     )>,
     mut commands: Commands,
 ) {
-    if let Ok((check_entity, digit_cell, cell_position)) = update_cell.get_single() {
+    if let Ok((check_entity, digit_cell, cell_position)) = update_cell.single() {
         if let Some(check_digit) = digit_cell.0 {
             debug!("check conflict: {:?}", check_digit);
             let mut conflict_list = vec![];
@@ -824,7 +821,7 @@ fn show_conflict(
             commands.entity(entity).remove::<ConflictCell>();
         } else {
             for child in children.iter() {
-                if let Ok(mut text) = q_text.get_mut(*child) {
+                if let Ok(mut text) = q_text.get_mut(child) {
                     text.0 = conflict.len().to_string();
                 }
             }
@@ -862,7 +859,7 @@ pub struct AutoCandidateMode(pub bool);
 
 fn cleanup_game(mut commands: Commands, menu: Query<Entity, With<Game>>) {
     for entity in menu.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -905,7 +902,11 @@ fn update_game_time(
     }
 }
 
-fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder, is_solved: bool) {
+fn spawn_show_more(
+    font_assets: &Res<FontAssets>,
+    builder: &mut ChildSpawnerCommands<'_>,
+    is_solved: bool,
+) {
     builder
         .spawn((
             ShowMoreContainer,
@@ -988,7 +989,7 @@ fn spawn_show_more(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder, is
 
 fn more_item(
     font_assets: &Res<FontAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
     text: &str,
     trigger: fn(Trigger<Pointer<Click>>, Commands, Single<Entity, With<SelectedCell>>),
 ) {
@@ -1031,7 +1032,7 @@ fn more_item(
         })
         .observe(
             |trigger: Trigger<Pointer<Over>>, mut item: Query<&mut BackgroundColor>| {
-                let entity = trigger.entity();
+                let entity = trigger.target();
                 if let Ok(mut item) = item.get_mut(entity) {
                     item.0 = *EXTRA_LIGHT_GRAY;
                 }
@@ -1039,7 +1040,7 @@ fn more_item(
         )
         .observe(
             |trigger: Trigger<Pointer<Out>>, mut item: Query<&mut BackgroundColor>| {
-                let entity = trigger.entity();
+                let entity = trigger.target();
                 if let Ok(mut item) = item.get_mut(entity) {
                     item.0 = WHITE_COLOR;
                 }
@@ -1059,12 +1060,12 @@ fn on_show_more(
     mut commands: Commands,
     sudoku_manager: Res<SudokuManager>,
 ) {
-    let parent = trigger.entity();
+    let parent = trigger.target();
 
     if opened.0 {
         opened.0 = false;
         for entity in q_more.iter() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     } else {
         opened.0 = true;
@@ -1149,7 +1150,7 @@ fn on_reveal_cell(
     sudoku_manager: Res<SudokuManager>,
     mut commands: Commands,
 ) {
-    let entity = trigger.entity();
+    let entity = trigger.target();
 
     if let Ok(cell_position) = q_select.get(entity) {
         for (index, num) in sudoku_manager.solution.iter().enumerate() {
@@ -1194,7 +1195,7 @@ fn on_check_cell(
     mut commands: Commands,
     settings: Res<Settings>,
 ) {
-    let entity = trigger.entity();
+    let entity = trigger.target();
     if let Ok((cell_value, cell_position)) = q_cell.get(entity) {
         if let Some(digit) = cell_value.0 {
             for (index, num) in sudoku_manager.solution.iter().enumerate() {

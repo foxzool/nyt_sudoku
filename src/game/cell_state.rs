@@ -1,8 +1,9 @@
-use bevy::prelude::*;
-use bevy::utils::HashSet;
+use bevy::{ecs::component::Mutable, platform::collections::HashSet, prelude::*};
 use std::ops::BitXorAssign;
-use sudoku::bitset::Set;
-use sudoku::board::{CellState, Digit};
+use sudoku::{
+    bitset::Set,
+    board::{CellState, Digit},
+};
 
 #[derive(Bundle)]
 pub struct CellValueBundle {
@@ -70,7 +71,7 @@ impl CandidatesValue for ManualCandidates {
     }
 }
 
-pub trait CandidatesValue: Component {
+pub trait CandidatesValue: Component<Mutability = Mutable> {
     fn insert(&mut self, digit: Digit) {
         self.candidates_mut().bitxor_assign(digit);
     }
@@ -132,7 +133,7 @@ impl CandidateMarker for AutoCandidateCellMarker {
     }
 }
 
-pub trait CandidateMarker: Component {
+pub trait CandidateMarker: Component<Mutability = Mutable> {
     fn index(&self) -> u8;
     fn selected(&self) -> bool;
 

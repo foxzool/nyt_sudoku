@@ -6,14 +6,14 @@ mod loading;
 mod menu;
 mod share;
 
-use crate::game::SudokuPlugin;
-use crate::loading::LoadingPlugin;
-use crate::menu::MenuPlugin;
+use crate::{game::SudokuPlugin, loading::LoadingPlugin, menu::MenuPlugin};
 
 use crate::color::WHITE_COLOR;
-use bevy::app::App;
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::prelude::*;
+use bevy::{
+    app::App,
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+};
 use bevy_kira_audio::AudioPlugin;
 
 // This example game uses States to separate game
@@ -40,7 +40,10 @@ impl Plugin for GamePlugin {
 
         #[cfg(debug_assertions)]
         {
-            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
+            app.add_plugins((
+                FrameTimeDiagnosticsPlugin::default(),
+                LogDiagnosticsPlugin::default(),
+            ));
         }
     }
 }

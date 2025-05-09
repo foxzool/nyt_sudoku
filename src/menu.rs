@@ -1,7 +1,9 @@
-use crate::color::DARK_BLACK;
-use crate::loading::{FontAssets, TextureAssets};
-use crate::share::title_bar;
-use crate::GameState;
+use crate::{
+    GameState,
+    color::DARK_BLACK,
+    loading::{FontAssets, TextureAssets},
+    share::title_bar,
+};
 use bevy::prelude::*;
 
 pub struct MenuPlugin;
@@ -263,7 +265,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>, font_assets:
         });
 }
 
-fn button_item(font_assets: &Res<FontAssets>, children: &mut ChildBuilder, text: &str) {
+fn button_item(font_assets: &Res<FontAssets>, children: &mut ChildSpawnerCommands<'_>, text: &str) {
     let button_colors = ButtonColors {
         normal: *DARK_BLACK,
         hovered: *DARK_BLACK,
@@ -343,6 +345,6 @@ fn click_play_button(
 
 fn cleanup_menu(mut commands: Commands, menu: Query<Entity, With<Menu>>) {
     for entity in menu.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }

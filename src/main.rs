@@ -1,11 +1,9 @@
 // disable console on windows for release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use bevy::asset::AssetMetaCheck;
-use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
-use bevy::winit::WinitWindows;
-use bevy::DefaultPlugins;
+use bevy::{
+    DefaultPlugins, asset::AssetMetaCheck, prelude::*, window::PrimaryWindow, winit::WinitWindows,
+};
 use bevy_sudoku::GamePlugin;
 use std::io::Cursor;
 use winit::window::Icon;
@@ -43,7 +41,9 @@ fn set_window_icon(
     windows: NonSend<WinitWindows>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
 ) {
-    let primary_entity = primary_window.single();
+    let Ok(primary_entity) = primary_window.single() else {
+        return;
+    };
     let Some(primary) = windows.get_window(primary_entity) else {
         return;
     };

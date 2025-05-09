@@ -2,7 +2,7 @@ use crate::loading::FontAssets;
 use bevy::prelude::*;
 
 /// 顶部标题栏
-pub fn title_bar(font_assets: &Res<FontAssets>, builder: &mut ChildBuilder) {
+pub fn title_bar(font_assets: &Res<FontAssets>, builder: &mut ChildSpawnerCommands<'_>) {
     builder
         .spawn((
             Name::new("title-wrapper"),

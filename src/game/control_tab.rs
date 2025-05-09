@@ -1,6 +1,8 @@
-use crate::color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR};
-use crate::game::{AutoCandidateMode, CleanCell, NewCandidate, NewDigit, SelectedCell};
-use crate::loading::{FontAssets, TextureAssets};
+use crate::{
+    color::{DARK_BLACK, DARK_GRAY, EXTRA_LIGHT_GRAY, GRAY, LIGHT_GRAY, WHITE_COLOR},
+    game::{AutoCandidateMode, CleanCell, NewCandidate, NewDigit, SelectedCell},
+    loading::{FontAssets, TextureAssets},
+};
 use bevy::prelude::*;
 
 pub(crate) fn plugin(app: &mut App) {
@@ -42,7 +44,7 @@ struct SelectedTab(ControlTab);
 pub(crate) fn control_board(
     font_assets: &Res<FontAssets>,
     texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
 ) {
     builder
         .spawn((
@@ -480,7 +482,7 @@ fn mouse_click_control_digit(
     selected_tab: Res<SelectedTab>,
     q_selected: Single<Entity, With<SelectedCell>>,
 ) {
-    if let Ok(cell_value) = q_cell.get(trigger.entity()) {
+    if let Ok(cell_value) = q_cell.get(trigger.target()) {
         match selected_tab.0 {
             ControlTab::Normal => {
                 commands.trigger_targets(NewDigit::new(cell_value.0), vec![*q_selected]);

@@ -1,5 +1,4 @@
-use bevy::prelude::*;
-use bevy::window::WindowMode;
+use bevy::{prelude::*, window::WindowMode};
 use bevy_sudoku::GamePlugin;
 
 #[bevy_main]

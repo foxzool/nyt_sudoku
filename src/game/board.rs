@@ -1,19 +1,17 @@
-use crate::game::cell_state::{ConflictCell, CorrectionCell};
-use crate::game::Settings;
 use crate::{
+    GameState,
     color::*,
     game::{
-        cell_state::{
-            AutoCandidateCellMarker, CandidateMarker, CandidatesValue, ManualCandidateCellMarker,
-            RevealedCell,
-        },
-        cell_state::{AutoCandidates, CellMode, DigitValueCell, ManualCandidates},
-        position::CellPosition,
         AutoCandidateMode, AutoCandidatesContainer, DigitCellContainer, ManualCandidatesContainer,
-        MoveSelectCell, SelectedCell,
+        MoveSelectCell, SelectedCell, Settings,
+        cell_state::{
+            AutoCandidateCellMarker, AutoCandidates, CandidateMarker, CandidatesValue, CellMode,
+            ConflictCell, CorrectionCell, DigitValueCell, ManualCandidateCellMarker,
+            ManualCandidates, RevealedCell,
+        },
+        position::CellPosition,
     },
     loading::{FontAssets, TextureAssets},
-    GameState,
 };
 use bevy::prelude::*;
 use sudoku::board::Digit;
@@ -45,7 +43,7 @@ pub(crate) fn plugin(app: &mut App) {
 pub(crate) fn play_board(
     font_assets: &Res<FontAssets>,
     _texture_assets: &Res<TextureAssets>,
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands<'_>,
 ) {
     builder
         .spawn((
@@ -298,7 +296,10 @@ pub(crate) fn play_board(
         });
 }
 
-fn spawn_conflict_container(texture_assets: &Res<TextureAssets>, builder: &mut ChildBuilder) {
+fn spawn_conflict_container(
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildSpawnerCommands<'_>,
+) {
     builder.spawn((
         ImageNode {
             image: texture_assets.circle.clone(),
@@ -351,7 +352,7 @@ fn on_click_cell(
         commands.entity(entity).remove::<SelectedCell>();
     }
 
-    commands.entity(trigger.entity()).insert(SelectedCell);
+    commands.entity(trigger.target()).insert(SelectedCell);
 }
 
 fn show_digit_cell(
@@ -429,16 +430,16 @@ fn show_preview_number(
 fn candidate_cell_click<C: CandidatesValue, M: CandidateMarker>(
     click: Trigger<Pointer<Click>>,
     cell: Query<&M>,
-    parent_query: Query<&Parent>,
+    parent_query: Query<&ChildOf>,
     mut q_select: Query<&mut C, With<SelectedCell>>,
     mut commands: Commands,
 ) {
-    let candidate_cell = cell.get(click.entity()).unwrap();
-    for ancestor in parent_query.iter_ancestors(click.entity()) {
+    let candidate_cell = cell.get(click.target()).unwrap();
+    for ancestor in parent_query.iter_ancestors(click.target()) {
         if let Ok(mut cell_value) = q_select.get_mut(ancestor) {
             cell_value.insert(Digit::new(candidate_cell.index()));
 
-            commands.entity(click.entity()).remove::<PreviewCandidate>();
+            commands.entity(click.target()).remove::<PreviewCandidate>();
         }
     }
 }
@@ -446,16 +447,16 @@ fn candidate_cell_click<C: CandidatesValue, M: CandidateMarker>(
 fn candidate_cell_move<C: CandidatesValue, M: CandidateMarker>(
     trigger: Trigger<Pointer<Over>>,
     cell: Query<&M>,
-    parent_query: Query<&Parent>,
+    parent_query: Query<&ChildOf>,
     q_select: Query<&mut C, With<SelectedCell>>,
     mut commands: Commands,
 ) {
-    if let Ok(manual_marker) = cell.get(trigger.entity()) {
-        for ancestor in parent_query.iter_ancestors(trigger.entity()) {
+    if let Ok(manual_marker) = cell.get(trigger.target()) {
+        for ancestor in parent_query.iter_ancestors(trigger.target()) {
             if let Ok(_cell_value) = q_select.get(ancestor) {
                 if !manual_marker.selected() {
                     commands
-                        .entity(trigger.entity())
+                        .entity(trigger.target())
                         .insert(PreviewCandidate::hold());
                 }
             }
@@ -467,15 +468,15 @@ fn candidate_cell_out<M: CandidateMarker>(
     trigger: Trigger<Pointer<Out>>,
     cell: Query<&M>,
     mut commands: Commands,
-    parent_query: Query<&Parent>,
+    parent_query: Query<&ChildOf>,
     q_select: Query<&CellMode, With<SelectedCell>>,
 ) {
-    if let Ok(manual_marker) = cell.get(trigger.entity()) {
-        for ancestor in parent_query.iter_ancestors(trigger.entity()) {
+    if let Ok(manual_marker) = cell.get(trigger.target()) {
+        for ancestor in parent_query.iter_ancestors(trigger.target()) {
             if let Ok(cell_mode) = q_select.get(ancestor) {
                 if *cell_mode != CellMode::Digit && !manual_marker.selected() {
                     commands
-                        .entity(trigger.entity())
+                        .entity(trigger.target())
                         .insert(PreviewCandidate::default());
                 }
             }
@@ -639,13 +640,13 @@ fn change_vis_inner(
     auto_vis: Visibility,
 ) {
     for child in children.iter() {
-        if let Ok(mut vis) = q_digit.get_mut(*child) {
+        if let Ok(mut vis) = q_digit.get_mut(child) {
             *vis = digit_vis;
         }
-        if let Ok(mut vis) = q_manual.get_mut(*child) {
+        if let Ok(mut vis) = q_manual.get_mut(child) {
             *vis = manual_vis;
         }
-        if let Ok(mut vis) = q_auto.get_mut(*child) {
+        if let Ok(mut vis) = q_auto.get_mut(child) {
             *vis = auto_vis;
         }
     }
@@ -659,7 +660,7 @@ fn on_insert_conflict(
     mut commands: Commands,
     texture_assets: Res<TextureAssets>,
 ) {
-    commands.entity(trigger.entity()).with_children(|builder| {
+    commands.entity(trigger.target()).with_children(|builder| {
         spawn_conflict_container(&texture_assets, builder);
     });
 }
@@ -683,9 +684,9 @@ fn remove_child_cell<E: Component, C: Component>(
     children: Query<&Children>,
     q_com: Query<Entity, With<C>>,
 ) {
-    for child in children.iter_descendants(trigger.entity()) {
+    for child in children.iter_descendants(trigger.target()) {
         if let Ok(e) = q_com.get(child) {
-            commands.entity(e).despawn_recursive();
+            commands.entity(e).despawn();
         }
     }
 }
@@ -695,7 +696,7 @@ fn on_insert_correction(
     mut commands: Commands,
     texture_assets: Res<TextureAssets>,
 ) {
-    commands.entity(trigger.entity()).with_children(|builder| {
+    commands.entity(trigger.target()).with_children(|builder| {
         spawn_correction_container(&texture_assets, builder);
     });
 }
@@ -703,7 +704,10 @@ fn on_insert_correction(
 #[derive(Component)]
 struct CorrectionContainer;
 
-fn spawn_correction_container(texture_assets: &Res<TextureAssets>, builder: &mut ChildBuilder) {
+fn spawn_correction_container(
+    texture_assets: &Res<TextureAssets>,
+    builder: &mut ChildSpawnerCommands<'_>,
+) {
     builder.spawn((
         ImageNode {
             image: texture_assets.correction.clone(),
